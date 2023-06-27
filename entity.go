@@ -15,26 +15,50 @@ type Entity interface {
 	CreateTable() CreateTableQuery
 	AlterTable() AlterTableQuery
 	DropTable() DropTableQuery
+	Begin()
+	Commit()
+	Rollback()
 
 	getPtr() *entity
 }
 
 type entity struct {
-	entityManager *entityManager
-	error         *errorManager
-	alias         string
-	name          string
-	columns       []*column
-	fulltext      []*entity
+	land     *land
+	error    *errorManager
+	alias    string
+	name     string
+	columns  []*column
+	fulltext []*entity
 }
 
-func createEntity(entityManager *entityManager, name string) *entity {
+func createEntity(land *land, name string) *entity {
 	return &entity{
-		entityManager: entityManager,
-		error:         createErrorManager(),
-		name:          name,
-		columns:       make([]*column, 0),
-		fulltext:      make([]*entity, 0),
+		land:     land,
+		error:    createErrorManager(),
+		name:     name,
+		columns:  make([]*column, 0),
+		fulltext: make([]*entity, 0),
+	}
+}
+
+func (e *entity) Begin() {
+	query := "BEGIN;"
+	if _, err := e.connection().Exec(query); err != nil {
+		panic(Error{error: err, query: query})
+	}
+}
+
+func (e *entity) Rollback() {
+	query := "ROLLBACK;"
+	if _, err := e.connection().Exec(query); err != nil {
+		panic(Error{error: err, query: query})
+	}
+}
+
+func (e *entity) Commit() {
+	query := "COMMIT;"
+	if _, err := e.connection().Exec(query); err != nil {
+		panic(Error{error: err, query: query})
 	}
 }
 
@@ -101,14 +125,14 @@ func (e *entity) SetUpdatedAt() Entity {
 }
 
 func (e *entity) getDateDataType() string {
-	if e.entityManager.land.config.Timezone {
+	if e.land.config.Timezone {
 		return TimestampWithZone
 	}
 	return Timestamp
 }
 
 func (e *entity) getIdDataType() string {
-	switch e.entityManager.land.config.DatabaseType {
+	switch e.land.config.DatabaseType {
 	case Postgres:
 		return Serial
 	default:
@@ -122,7 +146,7 @@ func (e *entity) setIdColumn() Entity {
 }
 
 func (e *entity) connection() *sql.DB {
-	return e.entityManager.land.db.connection
+	return e.land.db.connection
 }
 
 func (e *entity) getPtr() *entity {

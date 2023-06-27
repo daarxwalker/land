@@ -16,6 +16,7 @@ type SelectQuery interface {
 	Group(entity ...Entity) GroupQuery
 	Order(entity ...Entity) OrderQuery
 	Offset(offset int) SelectQuery
+	Single() SelectQuery
 	Limit(limit int) SelectQuery
 	All() SelectQuery
 	Param(param Param) SelectQuery
@@ -26,7 +27,6 @@ type SelectQuery interface {
 
 type selectQueryBuilder struct {
 	*queryBuilder
-	*resultManager
 	context       context.Context
 	entity        *entity
 	columns       []*columnsQueryBuilder
@@ -73,11 +73,11 @@ func (q *selectQueryBuilder) Columns(columns ...string) ColumnsQuery {
 }
 
 func (q *selectQueryBuilder) Exec() {
-	createResultManager(q.entity, q.context).setQuery(q.GetSQL()).setQueryType(Select).exec()
+	createQueryManager(q.entity, q.context).setQuery(q.GetSQL()).setQueryType(Select).exec()
 }
 
 func (q *selectQueryBuilder) GetResult(dest any) {
-	createResultManager(q.entity, q.context).setQuery(q.GetSQL()).setQueryType(Select).setDest(dest).getResult()
+	createQueryManager(q.entity, q.context).setQuery(q.GetSQL()).setQueryType(Select).setDest(dest).getResult()
 }
 
 func (q *selectQueryBuilder) GetSQL() string {
@@ -131,6 +131,11 @@ func (q *selectQueryBuilder) Fulltext(value string) SelectQuery {
 
 func (q *selectQueryBuilder) Offset(offset int) SelectQuery {
 	q.param.Offset = offset
+	return q
+}
+
+func (q *selectQueryBuilder) Single() SelectQuery {
+	q.param.Limit = 1
 	return q
 }
 

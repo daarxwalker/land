@@ -1,11 +1,13 @@
 package land
 
 import (
+	"context"
 	"strings"
 )
 
 type DeleteQuery interface {
 	GetSQL() string
+	Exec()
 	Return(columns ...string) DeleteQuery
 	Where(entity ...Entity) WhereQuery
 }
@@ -13,6 +15,7 @@ type DeleteQuery interface {
 type deleteQueryBuilder struct {
 	*queryBuilder
 	entity   *entity
+	context  context.Context
 	wheres   []*whereQueryBuilder
 	returns  []string
 	isReturn bool
@@ -22,6 +25,7 @@ func createDeleteQuery(entity *entity) *deleteQueryBuilder {
 	return &deleteQueryBuilder{
 		queryBuilder: createQueryBuilder(),
 		entity:       entity,
+		context:      context.Background(),
 		wheres:       make([]*whereQueryBuilder, 0),
 		returns:      make([]string, 0),
 	}
@@ -29,6 +33,10 @@ func createDeleteQuery(entity *entity) *deleteQueryBuilder {
 
 func (q *deleteQueryBuilder) GetSQL() string {
 	return q.createQueryString()
+}
+
+func (q *deleteQueryBuilder) Exec() {
+	createQueryManager(q.entity, q.context).setQuery(q.GetSQL()).setQueryType(Delete).exec()
 }
 
 func (q *deleteQueryBuilder) Return(columns ...string) DeleteQuery {

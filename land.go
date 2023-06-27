@@ -6,29 +6,35 @@ import (
 )
 
 type Land interface {
-	EntityManager() EntityManager
+	CreateEntity(name string) Entity
+	Migrator(migrationsManager MigrationsManager) Migrator
 	Ping() error
 }
 
 type land struct {
-	db            *db
-	entityManager *entityManager
-	config        Config
+	db       *db
+	entities []*entity
+	config   Config
 }
 
 func New(config Config, connector driver.Connector) Land {
 	l := &land{
 		config: config,
 	}
-	l.entityManager = createEntityManager(l)
 	if connector != nil {
 		l.db = createConnection(config, connector)
 	}
 	return l
 }
 
-func (l *land) EntityManager() EntityManager {
-	return l.entityManager
+func (l *land) CreateEntity(name string) Entity {
+	e := createEntity(l, name)
+	l.entities = append(l.entities, e)
+	return e
+}
+
+func (l *land) Migrator(migrationsManager MigrationsManager) Migrator {
+	return createMigrator(l, migrationsManager.getPtr())
 }
 
 func (l *land) Ping() error {

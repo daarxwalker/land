@@ -8,7 +8,7 @@ import (
 
 func TestInsert(t *testing.T) {
 	test := assert.New(t)
-	q := testEntity(testCreatePostgresInstance().EntityManager()).
+	q := testEntity(testCreatePostgresInstance()).
 		Insert().
 		Values(testModel{
 			Name:     "Dominik",

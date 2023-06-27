@@ -7,7 +7,8 @@ type testModel struct {
 }
 
 type testEntityContainer struct {
-	test func(em EntityManager) Entity
+	test1 func(l Land) Entity
+	test2 func(l Land) Entity
 }
 
 const (
@@ -31,8 +32,8 @@ func testCreatePostgresInstance() Land {
 	}, nil)
 }
 
-func testEntity(em EntityManager) Entity {
-	return em.CreateEntity(testEntityName).
+func testEntity(l Land) Entity {
+	return l.CreateEntity(testEntityName).
 		SetAlias(testEntityAlias).
 		SetColumn(testName, Varchar, ColOpts{Limit: 255, NotNull: true}).
 		SetColumn(testLastname, Varchar, ColOpts{Limit: 255, NotNull: true}).
@@ -42,8 +43,8 @@ func testEntity(em EntityManager) Entity {
 		SetUpdatedAt()
 }
 
-func testSecondEntity(em EntityManager) Entity {
-	return em.CreateEntity(testEntityName).
+func testSecondEntity(l Land) Entity {
+	return l.CreateEntity(testEntityName).
 		SetAlias(testEntityAlias+"2").
 		SetColumn(testName, Varchar, ColOpts{Limit: 255, NotNull: true}).
 		SetColumn(testLastname, Varchar, ColOpts{Limit: 255, NotNull: true}).

@@ -1,6 +1,7 @@
 package land
 
 import (
+	"context"
 	"fmt"
 	"reflect"
 	"strings"
@@ -8,24 +9,31 @@ import (
 
 type CreateTableQuery interface {
 	GetSQL() string
+	Exec()
 	IfNotExists() CreateTableQuery
 }
 
 type createTableQueryBuilder struct {
 	*queryBuilder
 	entity      *entity
+	context     context.Context
 	ifNotExists bool
 }
 
 func createCreateTableQuery(entity *entity) *createTableQueryBuilder {
 	return &createTableQueryBuilder{
 		queryBuilder: createQueryBuilder(),
+		context:      context.Background(),
 		entity:       entity,
 	}
 }
 
 func (q *createTableQueryBuilder) GetSQL() string {
 	return q.createQueryString()
+}
+
+func (q *createTableQueryBuilder) Exec() {
+	createQueryManager(q.entity, q.context).setQuery(q.GetSQL()).setQueryType(CreateTable).exec()
 }
 
 func (q *createTableQueryBuilder) IfNotExists() CreateTableQuery {

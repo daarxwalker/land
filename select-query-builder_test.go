@@ -8,7 +8,7 @@ import (
 
 func TestSelectBase(t *testing.T) {
 	test := assert.New(t)
-	q := testEntity(testCreatePostgresInstance().EntityManager()).
+	q := testEntity(testCreatePostgresInstance()).
 		Select().
 		All().
 		GetSQL()
@@ -17,8 +17,8 @@ func TestSelectBase(t *testing.T) {
 
 func TestSelectJoin(t *testing.T) {
 	test := assert.New(t)
-	ent2 := testSecondEntity(testCreatePostgresInstance().EntityManager())
-	q := testEntity(testCreatePostgresInstance().EntityManager()).Select()
+	ent2 := testSecondEntity(testCreatePostgresInstance())
+	q := testEntity(testCreatePostgresInstance()).Select()
 	q.Join().On(ent2, testLastname)
 	q.All()
 	test.Equal(`SELECT * FROM "tests" AS "t" LEFT JOIN tests AS t2 ON "t"."id" = "t2"."lastname";`, q.GetSQL())
@@ -26,7 +26,7 @@ func TestSelectJoin(t *testing.T) {
 
 func TestSelectColumns(t *testing.T) {
 	test := assert.New(t)
-	q := testEntity(testCreatePostgresInstance().EntityManager()).Select()
+	q := testEntity(testCreatePostgresInstance()).Select()
 	q.Columns("daar", "walker")
 	q.Column("test").Alias("random")
 	q.All()
@@ -35,7 +35,7 @@ func TestSelectColumns(t *testing.T) {
 
 func TestSelectWhere(t *testing.T) {
 	test := assert.New(t)
-	q := testEntity(testCreatePostgresInstance().EntityManager()).Select()
+	q := testEntity(testCreatePostgresInstance()).Select()
 	q.Column("name")
 	q.Where().Column("name").Equal("daar")
 	q.Where().Column("name").Equal("dominik").
@@ -46,7 +46,7 @@ func TestSelectWhere(t *testing.T) {
 
 func TestSelectGroup(t *testing.T) {
 	test := assert.New(t)
-	q := testEntity(testCreatePostgresInstance().EntityManager()).Select()
+	q := testEntity(testCreatePostgresInstance()).Select()
 	q.Group().Columns("test1", "test2")
 	q.All()
 	test.Equal(`SELECT * FROM "tests" AS "t" GROUP BY "t"."test1","t"."test2";`, q.GetSQL())
@@ -54,7 +54,7 @@ func TestSelectGroup(t *testing.T) {
 
 func TestSelectOrder(t *testing.T) {
 	test := assert.New(t)
-	q := testEntity(testCreatePostgresInstance().EntityManager()).Select()
+	q := testEntity(testCreatePostgresInstance()).Select()
 	q.Column("test")
 	q.Order().Slice([]Order{
 		{Key: "test", Direction: "asc"},
@@ -66,7 +66,7 @@ func TestSelectOrder(t *testing.T) {
 
 func TestSelectFulltext(t *testing.T) {
 	test := assert.New(t)
-	q := testEntity(testCreatePostgresInstance().EntityManager()).Select()
+	q := testEntity(testCreatePostgresInstance()).Select()
 	q.Column("test")
 	q.Fulltext("test")
 	q.All()

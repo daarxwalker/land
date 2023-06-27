@@ -19,6 +19,7 @@ const (
 // Columns names
 const (
 	Id        string = "id"
+	Name             = "name"
 	Vectors          = "vectors"
 	CreatedAt        = "created_at"
 	UpdatedAt        = "updated_at"

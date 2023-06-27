@@ -8,7 +8,7 @@ import (
 
 func TestAlterTable(t *testing.T) {
 	test := assert.New(t)
-	q := testEntity(testCreatePostgresInstance().EntityManager()).
+	q := testEntity(testCreatePostgresInstance()).
 		AlterTable().IfExists().
 		AddColumn("middle_name", Varchar, ColOpts{Limit: 255, NotNull: true, Unique: true}).
 		RenameColumn("name", "custom_name").

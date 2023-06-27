@@ -1,6 +1,7 @@
 package land
 
 import (
+	"context"
 	"reflect"
 	"strings"
 
@@ -10,6 +11,7 @@ import (
 type InsertQuery interface {
 	Values(value any) InsertQuery
 	GetSQL() string
+	Exec()
 	SetTSVectors(values ...any) InsertQuery
 	Return(columns ...string) InsertQuery
 }
@@ -17,6 +19,7 @@ type InsertQuery interface {
 type insertQueryBuilder struct {
 	*queryBuilder
 	entity   *entity
+	context  context.Context
 	data     ref
 	vectors  string
 	returns  []string
@@ -27,12 +30,17 @@ func createInsertQuery(entity *entity) *insertQueryBuilder {
 	return &insertQueryBuilder{
 		queryBuilder: createQueryBuilder(),
 		entity:       entity,
+		context:      context.Background(),
 		returns:      make([]string, 0),
 	}
 }
 
 func (q *insertQueryBuilder) GetSQL() string {
 	return q.createQueryString()
+}
+
+func (q *insertQueryBuilder) Exec() {
+	createQueryManager(q.entity, q.context).setQuery(q.GetSQL()).setQueryType(Insert).exec()
 }
 
 func (q *insertQueryBuilder) Values(data any) InsertQuery {

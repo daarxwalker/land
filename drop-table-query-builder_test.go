@@ -8,7 +8,7 @@ import (
 
 func TestDropTable(t *testing.T) {
 	test := assert.New(t)
-	q := testEntity(testCreatePostgresInstance().EntityManager()).
+	q := testEntity(testCreatePostgresInstance()).
 		DropTable().IfExists()
 	test.Equal(`DROP TABLE IF EXISTS "tests";`, q.GetSQL())
 }

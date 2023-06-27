@@ -8,7 +8,7 @@ import (
 	"time"
 )
 
-type resultManager struct {
+type queryManager struct {
 	entity    *entity
 	context   context.Context
 	queryType string
@@ -19,35 +19,35 @@ type resultManager struct {
 	duration  time.Duration
 }
 
-func createResultManager(entity *entity, context context.Context) *resultManager {
-	return &resultManager{
+func createQueryManager(entity *entity, context context.Context) *queryManager {
+	return &queryManager{
 		entity:  entity,
 		context: context,
 		rows:    make([][]sql.RawBytes, 0),
 	}
 }
 
-func (m *resultManager) setQuery(query string) *resultManager {
+func (m *queryManager) setQuery(query string) *queryManager {
 	m.query = query
 	return m
 }
 
-func (m *resultManager) setQueryType(queryType string) *resultManager {
+func (m *queryManager) setQueryType(queryType string) *queryManager {
 	m.queryType = queryType
 	return m
 }
 
-func (m *resultManager) setDest(dest any) *resultManager {
+func (m *queryManager) setDest(dest any) *queryManager {
 	m.dest = dest
 	return m
 }
 
-func (m *resultManager) getResult() {
+func (m *queryManager) getResult() {
 	m.scan()
 	m.log()
 }
 
-func (m *resultManager) scan() {
+func (m *queryManager) scan() {
 	start := time.Now()
 	rows, err := m.connection().QueryContext(m.context, m.query)
 	m.duration = time.Now().Sub(start)
@@ -73,7 +73,7 @@ func (m *resultManager) scan() {
 	}
 }
 
-func (m *resultManager) addRow(row []any) {
+func (m *queryManager) addRow(row []any) {
 	result := make([]sql.RawBytes, 0)
 	for _, c := range row {
 		result = append(result, *c.(*sql.RawBytes))
@@ -81,19 +81,19 @@ func (m *resultManager) addRow(row []any) {
 	m.rows = append(m.rows, result)
 }
 
-func (m *resultManager) exec() {
+func (m *queryManager) exec() {
 	_, err := m.connection().Exec(m.query)
 	if err != nil {
 		panic(Error{error: err, query: m.query})
 	}
 }
 
-func (m *resultManager) connection() *sql.DB {
-	return m.entity.entityManager.land.db.connection
+func (m *queryManager) connection() *sql.DB {
+	return m.entity.land.db.connection
 }
 
-func (m *resultManager) log() {
-	if !m.entity.entityManager.land.config.Log {
+func (m *queryManager) log() {
+	if !m.entity.land.config.Log {
 		return
 	}
 	fmt.Println(fmt.Sprintf("%s in %v: %s\n", strings.ToUpper(m.queryType), m.duration, m.query))
