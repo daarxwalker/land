@@ -15,10 +15,11 @@ const (
 	testEntityAlias = "t"
 	testName        = "name"
 	testLastname    = "lastname"
+	testActive      = "active"
 )
 
 var (
-	testEntityColumns = []string{Id, testName, testLastname}
+	testEntityColumns = []string{Id, testName, testLastname, testActive}
 )
 
 func testCreatePostgresInstance() Land {
@@ -35,6 +36,7 @@ func testEntity(em EntityManager) Entity {
 		SetAlias(testEntityAlias).
 		SetColumn(testName, Varchar, ColOpts{Limit: 255, NotNull: true}).
 		SetColumn(testLastname, Varchar, ColOpts{Limit: 255, NotNull: true}).
+		SetColumn(testActive, Boolean, ColOpts{NotNull: true, Default: false}).
 		SetFulltext().
 		SetCreatedAt().
 		SetUpdatedAt()

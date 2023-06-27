@@ -8,7 +8,7 @@ import (
 )
 
 type InsertQuery interface {
-	SetData(value any) InsertQuery
+	Values(value any) InsertQuery
 	GetSQL() string
 	SetTSVectors(values ...any) InsertQuery
 	Return(columns ...string) InsertQuery
@@ -35,7 +35,7 @@ func (q *insertQueryBuilder) GetSQL() string {
 	return q.createQueryString()
 }
 
-func (q *insertQueryBuilder) SetData(data any) InsertQuery {
+func (q *insertQueryBuilder) Values(data any) InsertQuery {
 	q.data.t = reflect.TypeOf(data)
 	q.data.v = reflect.ValueOf(data)
 	if q.data.v.Kind() == reflect.Ptr {

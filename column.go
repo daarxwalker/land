@@ -1,12 +1,18 @@
 package land
 
 type ColOpts struct {
-	Default any
-	Limit   int
-	PK      bool
-	NotNull bool
-	Unique  bool
-	Exclude bool
+	Default   any
+	Limit     int
+	PK        bool
+	NotNull   bool
+	Unique    bool
+	Exclude   bool
+	Reference EntityReference
+}
+
+type EntityReference struct {
+	Entity Entity
+	Column string
 }
 
 type column struct {

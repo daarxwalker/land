@@ -21,6 +21,7 @@ type Entity interface {
 
 type entity struct {
 	entityManager *entityManager
+	error         *errorManager
 	alias         string
 	name          string
 	columns       []*column
@@ -30,6 +31,7 @@ type entity struct {
 func createEntity(entityManager *entityManager, name string) *entity {
 	return &entity{
 		entityManager: entityManager,
+		error:         createErrorManager(),
 		name:          name,
 		columns:       make([]*column, 0),
 		fulltext:      make([]*entity, 0),

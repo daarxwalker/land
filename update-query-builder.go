@@ -77,9 +77,10 @@ func (q *updateQueryBuilder) createSetsPart() string {
 		}
 		if field.IsZero() {
 			setSql = append(setSql, q.createZeroValue(c, field))
-			continue
 		}
-		setSql = append(setSql, q.createValue(c, field))
+		if !field.IsZero() {
+			setSql = append(setSql, q.createValue(c, field))
+		}
 		result = append(result, strings.Join(setSql, " "))
 	}
 	return strings.Join(result, q.getColumnsDivider())

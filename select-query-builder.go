@@ -7,6 +7,7 @@ import (
 )
 
 type SelectQuery interface {
+	Context(context context.Context) SelectQuery
 	Column(name string) ColumnQuery
 	Columns(columns ...string) ColumnsQuery
 	Where(entity ...Entity) WhereQuery
@@ -19,11 +20,13 @@ type SelectQuery interface {
 	All() SelectQuery
 	Param(param Param) SelectQuery
 	GetSQL() string
+	GetResult(value any)
 	Exec()
 }
 
 type selectQueryBuilder struct {
 	*queryBuilder
+	*resultManager
 	context       context.Context
 	entity        *entity
 	columns       []*columnsQueryBuilder
@@ -52,6 +55,11 @@ func createSelectQuery(entity *entity) *selectQueryBuilder {
 	}
 }
 
+func (q *selectQueryBuilder) Context(context context.Context) SelectQuery {
+	q.context = context
+	return q
+}
+
 func (q *selectQueryBuilder) Column(name string) ColumnQuery {
 	c := createColumnQuery(q.entity, name)
 	q.singleColumns = append(q.singleColumns, c)
@@ -65,12 +73,11 @@ func (q *selectQueryBuilder) Columns(columns ...string) ColumnsQuery {
 }
 
 func (q *selectQueryBuilder) Exec() {
-	_, err := q.entity.connection().Exec(q.createQueryString())
-	if err != nil {
-		panic(
-			Error{error: err},
-		)
-	}
+	createResultManager(q.entity, q.context).setQuery(q.GetSQL()).setQueryType(Select).exec()
+}
+
+func (q *selectQueryBuilder) GetResult(dest any) {
+	createResultManager(q.entity, q.context).setQuery(q.GetSQL()).setQueryType(Select).setDest(dest).getResult()
 }
 
 func (q *selectQueryBuilder) GetSQL() string {

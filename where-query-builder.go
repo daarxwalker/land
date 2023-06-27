@@ -10,6 +10,7 @@ type WhereQuery interface {
 	Column(column string) WhereQuery
 	Contains(value any) WhereQuery
 	Equal(value any) WhereQuery
+	Like(value any) WhereQuery
 	Not() WhereQuery
 	Null() WhereQuery
 	Or(queries ...WhereQuery) WhereQuery
@@ -33,10 +34,11 @@ type whereQueryBuilder struct {
 }
 
 const (
-	whereEqual    = "equal"
 	whereContains = "contains"
-	whereNull     = "null"
+	whereEqual    = "equal"
 	whereFulltext = "fulltext"
+	whereLike     = "like"
+	whereNull     = "null"
 )
 
 func createWhereQuery(entity *entity) *whereQueryBuilder {
@@ -76,6 +78,14 @@ func (q *whereQueryBuilder) Equal(value any) WhereQuery {
 	q.valueRef.v = reflect.ValueOf(value)
 	return q
 }
+
+func (q *whereQueryBuilder) Like(value any) WhereQuery {
+	q.whereType = whereLike
+	q.valueRef.t = reflect.TypeOf(value)
+	q.valueRef.v = reflect.ValueOf(value)
+	return q
+}
+
 func (q *whereQueryBuilder) Not() WhereQuery {
 	q.negation = true
 	return q
@@ -126,23 +136,28 @@ func (q *whereQueryBuilder) createQueryString() string {
 
 func (q *whereQueryBuilder) getOperator() string {
 	switch q.whereType {
-	case whereEqual:
-		if q.negation {
-			return "!="
-		}
-		return "="
 	case whereContains:
 		if q.negation {
 			return "NOT IN"
 		}
 		return "IN"
+	case whereEqual:
+		if q.negation {
+			return "!="
+		}
+		return "="
+	case whereFulltext:
+		return "@@"
+	case whereLike:
+		if q.negation {
+			return "NOT LIKE"
+		}
+		return "LIKE"
 	case whereNull:
 		if q.negation {
 			return "IS NOT NULL"
 		}
 		return "IS NULL"
-	case whereFulltext:
-		return "@@"
 	default:
 		return ""
 	}
@@ -153,7 +168,11 @@ func (q *whereQueryBuilder) getValue() string {
 	if column == nil {
 		return ""
 	}
-	return q.createValue(column, q.valueRef.v)
+	value := q.createValue(column, q.valueRef.v)
+	if q.whereType == whereContains {
+		return "(" + value + ")"
+	}
+	return value
 }
 
 func (q *whereQueryBuilder) getColumn() *column {

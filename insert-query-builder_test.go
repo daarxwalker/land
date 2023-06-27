@@ -10,11 +10,11 @@ func TestInsert(t *testing.T) {
 	test := assert.New(t)
 	q := testEntity(testCreatePostgresInstance().EntityManager()).
 		Insert().
-		SetData(testModel{
+		Values(testModel{
 			Name:     "Dominik",
 			Lastname: "Linduska",
 		}).
 		SetTSVectors("Dominik", "Linduska")
 	q.Return(Id, "name", "lastname")
-	test.Equal(`INSERT INTO "tests" ("name","lastname","vectors","created_at","updated_at") VALUES ('Dominik','Linduska',to_tsvector('dominik linduska'),CURRENT_TIMESTAMP,CURRENT_TIMESTAMP) RETURNING "id","name","lastname";`, q.GetSQL())
+	test.Equal(`INSERT INTO "tests" ("name","lastname","active","vectors","created_at","updated_at") VALUES ('Dominik','Linduska',false,to_tsvector('dominik linduska'),CURRENT_TIMESTAMP,CURRENT_TIMESTAMP) RETURNING "id","name","lastname";`, q.GetSQL())
 }

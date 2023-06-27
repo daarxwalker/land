@@ -67,6 +67,9 @@ func (q *joinQueryBuilder) On(entity Entity, column ...string) {
 	if len(column) > 0 {
 		q.joinColumn = column[0]
 	}
+	if len(column) == 0 {
+		q.joinColumn = Id
+	}
 }
 
 func (q *joinQueryBuilder) createQueryString() []string {

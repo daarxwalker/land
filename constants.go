@@ -5,6 +5,17 @@ const (
 	Postgres string = "postgres"
 )
 
+// Query types
+const (
+	Select      = "SELECT"
+	Insert      = "INSERT"
+	Update      = "UPDATE"
+	Delete      = "DELETE"
+	CreateTable = "CREATE TABLE"
+	AlterTable  = "ALTER TABLE"
+	DropTable   = "DROP TABLE"
+)
+
 // Columns names
 const (
 	Id        string = "id"

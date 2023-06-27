@@ -4,8 +4,6 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-
-	"dd"
 )
 
 func TestUpdate(t *testing.T) {
@@ -18,6 +16,5 @@ func TestUpdate(t *testing.T) {
 		}).
 		SetTSVectors("Dominik", "Linduska")
 	q.Return(Id, "name", "lastname")
-	dd.Print(q.GetSQL())
-	test.Equal(``, ``)
+	test.Equal(`UPDATE "tests" SET "name" = 'Dominik',"lastname" = 'Linduska',"active" = false RETURNING "id","name","lastname";`, q.GetSQL())
 }

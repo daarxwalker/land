@@ -3,6 +3,8 @@ package land
 import (
 	"fmt"
 	"reflect"
+	"slices"
+	"strings"
 )
 
 type queryBuilder struct {
@@ -26,6 +28,13 @@ func (q *queryBuilder) getCoupler() string {
 
 func (q *queryBuilder) getQueryDivider() string {
 	return ";"
+}
+
+func (q *queryBuilder) createDataType(c *column) string {
+	if c.options.Limit > 0 && slices.Contains([]string{Varchar, Char}, c.dataType) {
+		return strings.ToUpper(c.dataType) + fmt.Sprintf("(%d)", c.options.Limit)
+	}
+	return strings.ToUpper(c.dataType)
 }
 
 func (q *queryBuilder) createValue(column *column, value reflect.Value) string {
