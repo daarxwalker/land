@@ -43,7 +43,7 @@ const (
 
 func createWhereQuery(entity *entity) *whereQueryBuilder {
 	return &whereQueryBuilder{
-		queryBuilder: createQueryBuilder(),
+		queryBuilder: createQueryBuilder().setQueryType(Where),
 		entity:       entity,
 		use:          true,
 		orQueries:    make([]*whereQueryBuilder, 0),

@@ -14,7 +14,7 @@ func TestUpdate(t *testing.T) {
 			Name:     "Dominik",
 			Lastname: "Linduska",
 		}).
-		SetTSVectors("Dominik", "Linduska")
+		SetVectors("Dominik", "Linduska")
 	q.Return(Id, "name", "lastname")
-	test.Equal(`UPDATE "tests" SET "name" = 'Dominik',"lastname" = 'Linduska',"active" = false RETURNING "id","name","lastname";`, q.GetSQL())
+	test.Equal(`UPDATE "tests" SET "name" = 'Dominik',"lastname" = 'Linduska',"active" = false,"vectors" =,"created_at" =,"updated_at" = CURRENT_TIMESTAMP RETURNING "id","name","lastname";`, q.GetSQL())
 }

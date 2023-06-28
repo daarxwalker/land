@@ -1,6 +1,7 @@
 package land
 
 import (
+	"context"
 	"fmt"
 	"reflect"
 	"strings"
@@ -11,12 +12,14 @@ type AlterTableQuery interface {
 	RenameColumn(currentName, newName string) AlterTableQuery
 	DropColumn(name string) AlterTableQuery
 	GetSQL() string
+	Exec()
 	IfExists() AlterTableQuery
 }
 
 type alterTableQueryBuilder struct {
 	*queryBuilder
 	entity   *entity
+	context  context.Context
 	ifExists bool
 	add      []*column
 	rename   map[string]string
@@ -25,7 +28,8 @@ type alterTableQueryBuilder struct {
 
 func createAlterTableQuery(entity *entity) *alterTableQueryBuilder {
 	return &alterTableQueryBuilder{
-		queryBuilder: createQueryBuilder(),
+		queryBuilder: createQueryBuilder().setQueryType(AlterTable),
+		context:      context.Background(),
 		entity:       entity,
 		add:          make([]*column, 0),
 		rename:       make(map[string]string),
@@ -51,6 +55,10 @@ func (q *alterTableQueryBuilder) RenameColumn(currentName, newName string) Alter
 func (q *alterTableQueryBuilder) DropColumn(name string) AlterTableQuery {
 	q.drop = append(q.drop, name)
 	return q
+}
+
+func (q *alterTableQueryBuilder) Exec() {
+	createQueryManager(q.entity, q.context).setQuery(q.GetSQL()).setQueryType(AlterTable).exec()
 }
 
 func (q *alterTableQueryBuilder) GetSQL() string {

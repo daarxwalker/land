@@ -1,8 +1,11 @@
 package land
 
-import "database/sql"
+import (
+	"database/sql"
+)
 
 type Entity interface {
+	ErrorManager
 	SetAlias(alias string) Entity
 	SetColumn(name, dataType string, options ...ColOpts) Entity
 	SetFulltext(entities ...Entity) Entity
@@ -15,51 +18,31 @@ type Entity interface {
 	CreateTable() CreateTableQuery
 	AlterTable() AlterTableQuery
 	DropTable() DropTableQuery
-	Begin()
-	Commit()
-	Rollback()
 
 	getPtr() *entity
 }
 
 type entity struct {
-	land     *land
-	error    *errorManager
-	alias    string
-	name     string
-	columns  []*column
-	fulltext []*entity
+	*errorManager
+	errorHandler *errorHandler
+	land         *land
+	alias        string
+	name         string
+	columns      []*column
+	fulltext     []*entity
 }
 
 func createEntity(land *land, name string) *entity {
-	return &entity{
-		land:     land,
-		error:    createErrorManager(),
-		name:     name,
-		columns:  make([]*column, 0),
-		fulltext: make([]*entity, 0),
+	e := &entity{
+		errorManager: createErrorManager(),
+		errorHandler: createErrorHandler(land),
+		land:         land,
+		name:         name,
+		columns:      make([]*column, 0),
+		fulltext:     make([]*entity, 0),
 	}
-}
-
-func (e *entity) Begin() {
-	query := "BEGIN;"
-	if _, err := e.connection().Exec(query); err != nil {
-		panic(Error{error: err, query: query})
-	}
-}
-
-func (e *entity) Rollback() {
-	query := "ROLLBACK;"
-	if _, err := e.connection().Exec(query); err != nil {
-		panic(Error{error: err, query: query})
-	}
-}
-
-func (e *entity) Commit() {
-	query := "COMMIT;"
-	if _, err := e.connection().Exec(query); err != nil {
-		panic(Error{error: err, query: query})
-	}
+	e.createIdColumn()
+	return e
 }
 
 func (e *entity) Select() SelectQuery {
@@ -140,7 +123,7 @@ func (e *entity) getIdDataType() string {
 	}
 }
 
-func (e *entity) setIdColumn() Entity {
+func (e *entity) createIdColumn() Entity {
 	e.columns = append(e.columns, &column{name: Id, dataType: e.getIdDataType(), options: ColOpts{PK: true, NotNull: true, Unique: true}})
 	return e
 }

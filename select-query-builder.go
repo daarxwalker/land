@@ -39,8 +39,8 @@ type selectQueryBuilder struct {
 }
 
 func createSelectQuery(entity *entity) *selectQueryBuilder {
-	return &selectQueryBuilder{
-		queryBuilder:  createQueryBuilder(),
+	q := &selectQueryBuilder{
+		queryBuilder:  createQueryBuilder().setQueryType(Select),
 		context:       context.Background(),
 		entity:        entity,
 		columns:       make([]*columnsQueryBuilder, 0),
@@ -53,6 +53,7 @@ func createSelectQuery(entity *entity) *selectQueryBuilder {
 			Limit: DefaultLimit,
 		},
 	}
+	return q
 }
 
 func (q *selectQueryBuilder) Context(context context.Context) SelectQuery {
@@ -146,7 +147,7 @@ func (q *selectQueryBuilder) Limit(limit int) SelectQuery {
 
 func (q *selectQueryBuilder) Param(param Param) SelectQuery {
 	for i := range param.Order {
-		param.Order[i].dynamic = true
+		param.Order[i].Dynamic = true
 	}
 	q.param = param
 	return q

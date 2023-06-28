@@ -8,6 +8,7 @@ import (
 type DeleteQuery interface {
 	GetSQL() string
 	Exec()
+	GetResult(dest any)
 	Return(columns ...string) DeleteQuery
 	Where(entity ...Entity) WhereQuery
 }
@@ -23,7 +24,7 @@ type deleteQueryBuilder struct {
 
 func createDeleteQuery(entity *entity) *deleteQueryBuilder {
 	return &deleteQueryBuilder{
-		queryBuilder: createQueryBuilder(),
+		queryBuilder: createQueryBuilder().setQueryType(Delete),
 		entity:       entity,
 		context:      context.Background(),
 		wheres:       make([]*whereQueryBuilder, 0),
@@ -37,6 +38,10 @@ func (q *deleteQueryBuilder) GetSQL() string {
 
 func (q *deleteQueryBuilder) Exec() {
 	createQueryManager(q.entity, q.context).setQuery(q.GetSQL()).setQueryType(Delete).exec()
+}
+
+func (q *deleteQueryBuilder) GetResult(dest any) {
+	createQueryManager(q.entity, q.context).setQuery(q.GetSQL()).setQueryType(Select).setDest(dest).getResult()
 }
 
 func (q *deleteQueryBuilder) Return(columns ...string) DeleteQuery {
@@ -57,7 +62,7 @@ func (q *deleteQueryBuilder) Where(entity ...Entity) WhereQuery {
 
 func (q *deleteQueryBuilder) createQueryString() string {
 	result := make([]string, 0)
-	result = append(result, "DELETE", q.escape(q.entity.name))
+	result = append(result, "DELETE FROM", q.escape(q.entity.name))
 	result = append(result, q.createWheresPart()...)
 	result = append(result, q.createReturnPart()...)
 	return strings.Join(result, " ") + q.getQueryDivider()

@@ -20,7 +20,7 @@ type columnQueryBuilder struct {
 
 func createColumnQuery(entity *entity, name string) *columnQueryBuilder {
 	return &columnQueryBuilder{
-		queryBuilder: createQueryBuilder(),
+		queryBuilder: createQueryBuilder().setQueryType(Column),
 		entity:       entity,
 		use:          true,
 		name:         name,

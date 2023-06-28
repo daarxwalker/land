@@ -22,7 +22,7 @@ type createTableQueryBuilder struct {
 
 func createCreateTableQuery(entity *entity) *createTableQueryBuilder {
 	return &createTableQueryBuilder{
-		queryBuilder: createQueryBuilder(),
+		queryBuilder: createQueryBuilder().setQueryType(CreateTable),
 		context:      context.Background(),
 		entity:       entity,
 	}
@@ -57,6 +57,9 @@ func (q *createTableQueryBuilder) createStructurePart() string {
 	for _, c := range q.entity.columns {
 		colSql := make([]string, 0)
 		colSql = append(colSql, q.escape(c.name), q.createDataType(c))
+		if c.options.PK {
+			colSql = append(colSql, "PRIMARY KEY")
+		}
 		if c.options.NotNull {
 			colSql = append(colSql, "NOT NULL")
 		}

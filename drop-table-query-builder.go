@@ -1,25 +1,29 @@
 package land
 
 import (
+	"context"
 	"strings"
 )
 
 type DropTableQuery interface {
 	Cascade() DropTableQuery
 	GetSQL() string
+	Exec()
 	IfExists() DropTableQuery
 }
 
 type dropTableQueryBuilder struct {
 	*queryBuilder
 	entity   *entity
+	context  context.Context
 	ifExists bool
 	cascade  bool
 }
 
 func createDropTableQuery(entity *entity) *dropTableQueryBuilder {
 	return &dropTableQueryBuilder{
-		queryBuilder: createQueryBuilder(),
+		queryBuilder: createQueryBuilder().setQueryType(DropTable),
+		context:      context.Background(),
 		entity:       entity,
 	}
 }
@@ -31,6 +35,10 @@ func (q *dropTableQueryBuilder) GetSQL() string {
 func (q *dropTableQueryBuilder) IfExists() DropTableQuery {
 	q.ifExists = true
 	return q
+}
+
+func (q *dropTableQueryBuilder) Exec() {
+	createQueryManager(q.entity, q.context).setQuery(q.GetSQL()).setQueryType(DropTable).exec()
 }
 
 func (q *dropTableQueryBuilder) Cascade() DropTableQuery {

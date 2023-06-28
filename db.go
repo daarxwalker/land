@@ -2,19 +2,23 @@ package land
 
 import (
 	"database/sql"
-	"database/sql/driver"
+	"log"
 
 	_ "github.com/lib/pq"
 )
 
 type db struct {
 	config     Config
-	connector  driver.Connector
+	connector  *connector
 	connection *sql.DB
 }
 
-func createConnection(config Config, connector driver.Connector) *db {
+func createConnection(config Config, connector *connector) *db {
 	d := &db{config: config, connector: connector}
-	d.connection = sql.OpenDB(d.connector)
+	connection, err := sql.Open(connector.dbtype, connector.createConnectionString())
+	if err != nil {
+		log.Fatalln(err)
+	}
+	d.connection = connection
 	return d
 }

@@ -30,7 +30,7 @@ const (
 
 func createJoinQuery(entity *entity) *joinQueryBuilder {
 	return &joinQueryBuilder{
-		queryBuilder: createQueryBuilder(),
+		queryBuilder: createQueryBuilder().setQueryType(Join),
 		joinType:     joinLeft,
 		entity:       entity,
 		column:       Id,

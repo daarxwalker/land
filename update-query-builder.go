@@ -1,6 +1,7 @@
 package land
 
 import (
+	"context"
 	"reflect"
 	"strings"
 
@@ -10,13 +11,16 @@ import (
 type UpdateQuery interface {
 	SetData(value any) UpdateQuery
 	GetSQL() string
-	SetTSVectors(values ...any) UpdateQuery
+	GetResult(dest any)
+	Exec()
+	SetVectors(values ...any) UpdateQuery
 	Return(columns ...string) UpdateQuery
 }
 
 type updateQueryBuilder struct {
 	*queryBuilder
 	entity   *entity
+	context  context.Context
 	data     ref
 	vectors  string
 	returns  []string
@@ -25,7 +29,8 @@ type updateQueryBuilder struct {
 
 func createUpdateQuery(entity *entity) *updateQueryBuilder {
 	return &updateQueryBuilder{
-		queryBuilder: createQueryBuilder(),
+		queryBuilder: createQueryBuilder().setQueryType(Update),
+		context:      context.Background(),
 		entity:       entity,
 		returns:      make([]string, 0),
 	}
@@ -33,6 +38,14 @@ func createUpdateQuery(entity *entity) *updateQueryBuilder {
 
 func (q *updateQueryBuilder) GetSQL() string {
 	return q.createQueryString()
+}
+
+func (q *updateQueryBuilder) GetResult(dest any) {
+	createQueryManager(q.entity, q.context).setQuery(q.GetSQL()).setQueryType(Update).setDest(dest).getResult()
+}
+
+func (q *updateQueryBuilder) Exec() {
+	createQueryManager(q.entity, q.context).setQuery(q.GetSQL()).setQueryType(Update).exec()
 }
 
 func (q *updateQueryBuilder) SetData(data any) UpdateQuery {
@@ -50,7 +63,7 @@ func (q *updateQueryBuilder) Return(columns ...string) UpdateQuery {
 	return q
 }
 
-func (q *updateQueryBuilder) SetTSVectors(values ...any) UpdateQuery {
+func (q *updateQueryBuilder) SetVectors(values ...any) UpdateQuery {
 	q.vectors = createTSVectors(values...)
 	return q
 }
@@ -73,6 +86,10 @@ func (q *updateQueryBuilder) createSetsPart() string {
 		setSql = append(setSql, q.escape(c.name), "=")
 		field := q.data.v.FieldByName(strcase.ToCamel(c.name))
 		if !field.IsValid() {
+			if c.name == UpdatedAt {
+				setSql = append(setSql, CurrentTimestamp)
+			}
+			result = append(result, strings.Join(setSql, " "))
 			continue
 		}
 		if field.IsZero() {

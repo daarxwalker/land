@@ -56,7 +56,7 @@ func TestSelectOrder(t *testing.T) {
 	test := assert.New(t)
 	q := testEntity(testCreatePostgresInstance()).Select()
 	q.Column("test")
-	q.Order().Slice([]Order{
+	q.Order().Slice([]OrderParam{
 		{Key: "test", Direction: "asc"},
 	})
 	q.Order().Asc("test_one").Desc("test_two")

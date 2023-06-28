@@ -2,7 +2,6 @@ package land
 
 import (
 	"fmt"
-	"log"
 	"os"
 	"strconv"
 	"time"
@@ -20,6 +19,7 @@ type Migrator interface {
 type migrator struct {
 	land              *land
 	migrationsManager *migrationsManager
+	errorHandler      *errorHandler
 }
 
 type landMigration struct {
@@ -52,11 +52,11 @@ import (
 )
 
 func init() {
-	Migrations.Add(%s).
-		Up(func(orm land.ORM) {
+	Migrations.Add("%s").
+		Up(func(l land.Land) {
 		
 		}).
-		Down(func(orm land.ORM) {
+		Down(func(l land.Land) {
 		
 		})
 }
@@ -67,20 +67,24 @@ func createMigrator(land *land, migrationsManager *migrationsManager) Migrator {
 	return &migrator{
 		land:              land,
 		migrationsManager: migrationsManager,
+		errorHandler:      createErrorHandler(land),
 	}
 }
 
 func (m *migrator) Init() {
+	defer m.errorHandler.recover()
 	fmt.Println("### Initializing...")
 	m.createMigrationsEntity().CreateTable().IfNotExists().Exec()
 	fmt.Println("### INIT SUCCESS!")
 }
 
 func (m *migrator) New() {
+	defer m.errorHandler.recover()
 	m.createMigration()
 }
 
 func (m *migrator) Up() {
+	defer m.errorHandler.recover()
 	dbMigrations := make([]landMigration, 0)
 	lm := m.createMigrationsEntity()
 	{
@@ -100,35 +104,49 @@ func (m *migrator) Up() {
 			continue
 		}
 		fmt.Println("### Migrating: " + fileMigration.id)
-		lm.Begin()
+		tx := m.land.Transaction()
+		tx.Begin()
 		fileMigration.up(m.land)
-		lm.Commit()
-		lm.Insert().Values(landMigration{Name: fileMigration.id}).Exec()
+		tx.Commit()
+		lm.Insert().SetData(landMigration{Name: fileMigration.id}).Exec()
 		fmt.Println("### MIGRATION SUCCESS: " + fileMigration.id)
 	}
 }
 
 func (m *migrator) Down() {
+	defer m.errorHandler.recover()
 	var lastMigration landMigration
-	lm := m.createMigrationsEntity()
 	{
+		lm := m.createMigrationsEntity()
 		q := lm.Select()
 		q.Columns(Id, Name)
 		q.Order().Desc(CreatedAt)
 		q.Single().GetResult(&lastMigration)
+		if lm.IsError() {
+			err := lm.Error()
+			m.errorHandler.createErrorMessage(err.Error, err.Query, err.Message)
+			return
+		}
 	}
 	migration := m.getMigrationWithId(lastMigration.Name)
 	if migration == nil {
 		return
 	}
 	fmt.Println("### Rollbacking: " + migration.id)
-	lm.Begin()
+	tx := m.land.Transaction()
+	tx.Begin()
 	migration.down(m.land)
-	lm.Commit()
+	tx.Commit()
 	{
+		lm := m.createMigrationsEntity()
 		q := lm.Delete()
 		q.Where().Column(Name).Equal(migration.id)
 		q.Exec()
+		if lm.IsError() {
+			err := lm.Error()
+			m.errorHandler.createErrorMessage(err.Error, err.Query, err.Message)
+			return
+		}
 	}
 	fmt.Println("### ROLLBACK SUCCESS: " + migration.id)
 }
@@ -157,12 +175,6 @@ func (m *migrator) getMigrationsMainFileDir() string {
 	return dir + "/" + migrationsMainFile
 }
 
-func (m *migrator) check(err error) {
-	if err != nil {
-		log.Fatalln(err)
-	}
-}
-
 func (m *migrator) createMigrationsEntity() Entity {
 	return m.land.CreateEntity(migrationsEntityName).
 		SetColumn(Name, Text, ColOpts{NotNull: true}).
@@ -188,9 +200,13 @@ func (m *migrator) createMigration() Migrator {
 	filedir := dir + "/" + id + ".go"
 	if _, err := os.Stat(filedir); os.IsNotExist(err) {
 		file, err := os.Create(filedir)
-		m.check(err)
+		if err != nil {
+			m.errorHandler.createErrorMessage(err, "create new migration file failed", "")
+		}
 		_, err = file.WriteString(fmt.Sprintf(newMigrationFileContent, id))
-		m.check(err)
+		if err != nil {
+			m.errorHandler.createErrorMessage(err, "write init content to new migration failed", "")
+		}
 	}
 	return m
 }
@@ -202,7 +218,7 @@ func (m *migrator) verifyMigrationsDir() {
 	}
 	if _, err := os.Stat(dir); os.IsNotExist(err) {
 		if err := os.Mkdir(dir, os.ModePerm); err != nil {
-			log.Fatal(err)
+			m.errorHandler.createErrorMessage(err, "create migrations folder failed", "")
 		}
 	}
 }
@@ -214,8 +230,12 @@ func (m *migrator) verifyMainMigrationsFile() {
 	}
 	if _, err := os.Stat(dir); os.IsNotExist(err) {
 		file, err := os.Create(dir)
-		m.check(err)
+		if err != nil {
+			m.errorHandler.createErrorMessage(err, "write init content to new migration failed", "")
+		}
 		_, err = file.WriteString(mainMigrationsFileContent)
-		m.check(err)
+		if err != nil {
+			m.errorHandler.createErrorMessage(err, "write init content to new migration failed", "")
+		}
 	}
 }

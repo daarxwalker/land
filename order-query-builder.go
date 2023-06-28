@@ -10,7 +10,7 @@ import (
 type OrderQuery interface {
 	Asc(column string) OrderQuery
 	Desc(column string) OrderQuery
-	Slice(orders []Order) OrderQuery
+	Slice(orders []OrderParam) OrderQuery
 }
 
 type orderQueryBuilder struct {
@@ -18,7 +18,7 @@ type orderQueryBuilder struct {
 	entity        *entity
 	columns       []*columnsQueryBuilder
 	singleColumns []*columnQueryBuilder
-	orders        []Order
+	orders        []OrderParam
 }
 
 const (
@@ -28,25 +28,25 @@ const (
 
 func createOrderQuery(entity *entity, columns []*columnsQueryBuilder, singleColumns []*columnQueryBuilder) *orderQueryBuilder {
 	return &orderQueryBuilder{
-		queryBuilder:  createQueryBuilder(),
+		queryBuilder:  createQueryBuilder().setQueryType(Order),
 		entity:        entity,
 		columns:       columns,
 		singleColumns: singleColumns,
-		orders:        make([]Order, 0),
+		orders:        make([]OrderParam, 0),
 	}
 }
 
 func (q *orderQueryBuilder) Asc(column string) OrderQuery {
-	q.orders = append(q.orders, Order{Key: strcase.ToSnake(column), Direction: orderAsc})
+	q.orders = append(q.orders, OrderParam{Key: strcase.ToSnake(column), Direction: orderAsc})
 	return q
 }
 
 func (q *orderQueryBuilder) Desc(column string) OrderQuery {
-	q.orders = append(q.orders, Order{Key: strcase.ToSnake(column), Direction: orderDesc})
+	q.orders = append(q.orders, OrderParam{Key: strcase.ToSnake(column), Direction: orderDesc})
 	return q
 }
 
-func (q *orderQueryBuilder) Slice(orders []Order) OrderQuery {
+func (q *orderQueryBuilder) Slice(orders []OrderParam) OrderQuery {
 	for _, o := range orders {
 		o.Key = strcase.ToSnake(o.Key)
 		o.Direction = strings.ToUpper(o.Direction)
@@ -58,7 +58,7 @@ func (q *orderQueryBuilder) Slice(orders []Order) OrderQuery {
 func (q *orderQueryBuilder) createQueryString() string {
 	result := make([]string, 0)
 	for _, order := range q.orders {
-		if order.dynamic {
+		if order.Dynamic {
 			for _, c := range q.columns {
 				if !slices.Contains(c.columns, order.Key) {
 					continue
@@ -72,14 +72,14 @@ func (q *orderQueryBuilder) createQueryString() string {
 				result = append(result, q.createColumnSql(c.entity, order))
 			}
 		}
-		if !order.dynamic {
+		if !order.Dynamic {
 			result = append(result, q.createColumnSql(q.entity, order))
 		}
 	}
 	return strings.Join(result, q.getColumnsDivider())
 }
 
-func (q *orderQueryBuilder) createColumnSql(entity *entity, order Order) string {
+func (q *orderQueryBuilder) createColumnSql(entity *entity, order OrderParam) string {
 	result := make([]string, 0)
 	if len(entity.alias) > 0 {
 		result = append(result, q.escape(entity.alias), q.getCoupler())

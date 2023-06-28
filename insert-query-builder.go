@@ -9,10 +9,11 @@ import (
 )
 
 type InsertQuery interface {
-	Values(value any) InsertQuery
+	SetData(value any) InsertQuery
 	GetSQL() string
 	Exec()
-	SetTSVectors(values ...any) InsertQuery
+	GetResult(dest any)
+	SetVectors(values ...any) InsertQuery
 	Return(columns ...string) InsertQuery
 }
 
@@ -28,7 +29,7 @@ type insertQueryBuilder struct {
 
 func createInsertQuery(entity *entity) *insertQueryBuilder {
 	return &insertQueryBuilder{
-		queryBuilder: createQueryBuilder(),
+		queryBuilder: createQueryBuilder().setQueryType(Insert),
 		entity:       entity,
 		context:      context.Background(),
 		returns:      make([]string, 0),
@@ -43,7 +44,11 @@ func (q *insertQueryBuilder) Exec() {
 	createQueryManager(q.entity, q.context).setQuery(q.GetSQL()).setQueryType(Insert).exec()
 }
 
-func (q *insertQueryBuilder) Values(data any) InsertQuery {
+func (q *insertQueryBuilder) GetResult(dest any) {
+	createQueryManager(q.entity, q.context).setQuery(q.GetSQL()).setQueryType(Insert).setDest(dest).getResult()
+}
+
+func (q *insertQueryBuilder) SetData(data any) InsertQuery {
 	q.data.t = reflect.TypeOf(data)
 	q.data.v = reflect.ValueOf(data)
 	if q.data.v.Kind() == reflect.Ptr {
@@ -58,7 +63,7 @@ func (q *insertQueryBuilder) Return(columns ...string) InsertQuery {
 	return q
 }
 
-func (q *insertQueryBuilder) SetTSVectors(values ...any) InsertQuery {
+func (q *insertQueryBuilder) SetVectors(values ...any) InsertQuery {
 	q.vectors = createTSVectors(values...)
 	return q
 }

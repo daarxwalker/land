@@ -17,7 +17,7 @@ type groupQueryBuilder struct {
 
 func createGroupQuery(entity *entity) *groupQueryBuilder {
 	return &groupQueryBuilder{
-		queryBuilder: createQueryBuilder(),
+		queryBuilder: createQueryBuilder().setQueryType(Group),
 		entity:       entity,
 		columns:      make([]string, 0),
 	}

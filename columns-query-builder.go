@@ -18,7 +18,7 @@ type columnsQueryBuilder struct {
 
 func createColumnsQuery(entity *entity, columns ...string) *columnsQueryBuilder {
 	c := &columnsQueryBuilder{
-		queryBuilder: createQueryBuilder(),
+		queryBuilder: createQueryBuilder().setQueryType(Columns),
 		entity:       entity,
 		columns:      make([]string, 0),
 		use:          true,

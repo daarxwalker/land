@@ -1,10 +1,5 @@
 package land
 
-// Databases types
-const (
-	Postgres string = "postgres"
-)
-
 // Query types
 const (
 	Select      = "SELECT"
@@ -14,6 +9,12 @@ const (
 	CreateTable = "CREATE TABLE"
 	AlterTable  = "ALTER TABLE"
 	DropTable   = "DROP TABLE"
+	Where       = "WHERE"
+	Join        = "JOIN"
+	Order       = "ORDER"
+	Column      = "COLUMN"
+	Columns     = "COLUMNS"
+	Group       = "GROUP"
 )
 
 // Columns names
@@ -31,9 +32,12 @@ const (
 	Char                     = "char"
 	Text                     = "text"
 	Int                      = "int"
+	Int4                     = "int4"
+	Int8                     = "int8"
 	BigInt                   = "bigint"
 	Float                    = "float"
 	Boolean                  = "boolean"
+	Bool                     = "bool"
 	Jsonb                    = "jsonb"
 	ArrayText                = "text[]"
 	ArrayInt                 = "integer[]"

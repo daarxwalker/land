@@ -8,10 +8,16 @@ import (
 )
 
 type queryBuilder struct {
+	queryType string
 }
 
 func createQueryBuilder() *queryBuilder {
 	return &queryBuilder{}
+}
+
+func (q *queryBuilder) setQueryType(queryType string) *queryBuilder {
+	q.queryType = queryType
+	return q
 }
 
 func (q *queryBuilder) escape(value string) string {
@@ -46,13 +52,18 @@ func (q *queryBuilder) createValue(column *column, value reflect.Value) string {
 	}
 	switch column.dataType {
 	case TsVector:
-		return fmt.Sprintf(`%s`, createTSQuery(value.String()))
+		if q.queryType == Where {
+			return fmt.Sprintf(`%s`, createTSQuery(value.String()))
+		}
+		return fmt.Sprintf(`%s`, createTSVectors(value.String()))
 	case Varchar:
 		return fmt.Sprintf(`'%s'`, value.String())
 	case Text:
 		return fmt.Sprintf(`'%s'`, value.String())
 	case Char:
 		return fmt.Sprintf(`'%s'`, value.String())
+	case Serial:
+		return fmt.Sprintf(`%d`, value.Int())
 	case Int:
 		return fmt.Sprintf(`%d`, value.Int())
 	case BigInt:

@@ -1,18 +1,17 @@
 package land
 
 type Param struct {
-	Id       int     `json:"id"`
-	Ids      int     `json:"ids"`
-	Fulltext string  `json:"fulltext"`
-	Offset   int     `json:"offset"`
-	Limit    int     `json:"limit"`
-	Order    []Order `json:"order"`
-	All      bool    `json:"all"`
+	Id       int          `json:"id"`
+	Ids      int          `json:"ids"`
+	Fulltext string       `json:"fulltext"`
+	Offset   int          `json:"offset"`
+	Limit    int          `json:"limit"`
+	Order    []OrderParam `json:"order"`
+	All      bool         `json:"all"`
 }
 
-type Order struct {
+type OrderParam struct {
 	Key       string `json:"key"`
 	Direction string `json:"direction"`
-
-	dynamic bool `json:"-"`
+	Dynamic   bool   `json:"-"`
 }
