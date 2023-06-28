@@ -12,7 +12,7 @@ Issues are very welcome.
 
 ## Get started
 Use *land.Connector* with func *.Connect()* to connect to your database.
-
+```go
 	l := land.New(  
 		land.Config{  
 			Production: false,  
@@ -27,14 +27,14 @@ Use *land.Connector* with func *.Connect()* to connect to your database.
 			Password("land").  
 			Dbname("land"),  
 	)
-
+```
 ## Entity
 Entities are blocks, which hold table structure.\
 You need Land instance to create and use entity.\
 Entities have access to queries.
 
 ### Entity syntax example
-
+```go
     package user_entity  
   
     import "land"  
@@ -57,8 +57,9 @@ Entities have access to queries.
 			SetCreatedAt().  
 			SetUpdatedAt()  
 	}
-
+```
 ## Queries examples
+```go
 	package user_repository
 	
 	import (
@@ -110,18 +111,19 @@ Entities have access to queries.
 		q.Where().Column(land.Id).Equal(id)  
 		q.Exec() 
 	}
-
+```
 ## Migrations
 Migrations folder have to be in project root!
 
 ### Migrations folder structure example
-
+```go
     - []migrations
 	    - 1687967915906263000_G037Ozocz4NrkgwH.go
 	    - go.mod
 	    - main.go
-
+```
 ### Migrations main.go
+```go
 	package main
 	
 	import (
@@ -156,7 +158,7 @@ Migrations folder have to be in project root!
 			return  
 		}  
 	}
-
+```
 ### Migrations commands example
 Commands are based on config mentioned above.
 
