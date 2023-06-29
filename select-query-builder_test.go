@@ -30,7 +30,7 @@ func TestSelectColumns(t *testing.T) {
 	q.Columns("daar", "walker")
 	q.Column("test").Alias("random")
 	q.All()
-	test.Equal(`SELECT "t"."daar","t"."walker","t"."test" AS "test" FROM "tests" AS "t";`, q.GetSQL())
+	test.Equal(`SELECT "t"."daar","t"."walker","t"."test" AS "random" FROM "tests" AS "t";`, q.GetSQL())
 }
 
 func TestSelectWhere(t *testing.T) {
@@ -47,7 +47,7 @@ func TestSelectWhere(t *testing.T) {
 func TestSelectGroup(t *testing.T) {
 	test := assert.New(t)
 	q := testEntity(testCreatePostgresInstance()).Select()
-	q.Group().Columns("test1", "test2")
+	q.Group("test1", "test2")
 	q.All()
 	test.Equal(`SELECT * FROM "tests" AS "t" GROUP BY "t"."test1","t"."test2";`, q.GetSQL())
 }
@@ -56,9 +56,7 @@ func TestSelectOrder(t *testing.T) {
 	test := assert.New(t)
 	q := testEntity(testCreatePostgresInstance()).Select()
 	q.Column("test")
-	q.Order().Slice([]OrderParam{
-		{Key: "test", Direction: "asc"},
-	})
+	q.Order(OrderParam{Key: "test", Direction: "asc"})
 	q.Order().Asc("test_one").Desc("test_two")
 	q.All()
 	test.Equal(`SELECT "t"."test" FROM "tests" AS "t" ORDER BY "t"."test" ASC,"t"."test_one" ASC,"t"."test_two" DESC;`, q.GetSQL())
@@ -71,4 +69,14 @@ func TestSelectFulltext(t *testing.T) {
 	q.Fulltext("test")
 	q.All()
 	test.Equal(`SELECT "t"."test" FROM "tests" AS "t" WHERE "t"."vectors" @@ to_tsquery('test:*');`, q.GetSQL())
+}
+
+func TestSelectCountGroup(t *testing.T) {
+	test := assert.New(t)
+	q := testEntity(testCreatePostgresInstance()).Select()
+	q.Column("lastname")
+	q.Column("lastname").Count().Alias("lastname_count")
+	q.Group("lastname")
+	q.All()
+	test.Equal(`SELECT "t"."lastname",COUNT("t"."lastname") AS "lastname_count" FROM "tests" AS "t" GROUP BY "t"."lastname";`, q.GetSQL())
 }

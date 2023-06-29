@@ -13,8 +13,8 @@ type SelectQuery interface {
 	Where(entity ...Entity) WhereQuery
 	Join(entity ...Entity) JoinQuery
 	Fulltext(value string) SelectQuery
-	Group(entity ...Entity) GroupQuery
-	Order(entity ...Entity) OrderQuery
+	Group(columns ...string) GroupQuery
+	Order(orders ...OrderParam) OrderQuery
 	Offset(offset int) SelectQuery
 	Single() SelectQuery
 	Limit(limit int) SelectQuery
@@ -95,22 +95,14 @@ func (q *selectQueryBuilder) Join(entity ...Entity) JoinQuery {
 	return join
 }
 
-func (q *selectQueryBuilder) Group(entity ...Entity) GroupQuery {
-	e := q.entity
-	if len(entity) > 0 {
-		e = entity[0].getPtr()
-	}
-	group := createGroupQuery(e)
+func (q *selectQueryBuilder) Group(columns ...string) GroupQuery {
+	group := createGroupQuery(q.entity, columns...)
 	q.groups = append(q.groups, group)
 	return group
 }
 
-func (q *selectQueryBuilder) Order(entity ...Entity) OrderQuery {
-	e := q.entity
-	if len(entity) > 0 {
-		e = entity[0].getPtr()
-	}
-	order := createOrderQuery(e, q.columns, q.singleColumns)
+func (q *selectQueryBuilder) Order(orders ...OrderParam) OrderQuery {
+	order := createOrderQuery(q.entity, q.columns, q.singleColumns, orders...)
 	q.orders = append(q.orders, order)
 	return order
 }

@@ -4,8 +4,6 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-
-	"dd"
 )
 
 func TestDelete(t *testing.T) {
@@ -14,6 +12,5 @@ func TestDelete(t *testing.T) {
 		Delete()
 	q.Where().Column(Id).Equal(1)
 	q.Return(Id)
-	dd.Print(q.GetSQL())
-	test.Equal(``, ``)
+	test.Equal(`DELETE FROM "tests" WHERE "t"."id" = 1 RETURNING "id";`, q.GetSQL())
 }

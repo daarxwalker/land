@@ -115,7 +115,10 @@ func (e *entity) getDateDataType() string {
 }
 
 func (e *entity) getIdDataType() string {
-	switch e.land.config.DatabaseType {
+	if e.land.db == nil {
+		return Serial
+	}
+	switch e.land.db.connector.dbtype {
 	case Postgres:
 		return Serial
 	default:

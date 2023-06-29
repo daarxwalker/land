@@ -1,6 +1,7 @@
 package land
 
 import (
+	"fmt"
 	"strings"
 )
 
@@ -8,6 +9,7 @@ type ColumnQuery interface {
 	Entity(entity Entity) ColumnQuery
 	Alias(alias string) ColumnQuery
 	Use(use bool) ColumnQuery
+	Count() ColumnQuery
 }
 
 type columnQueryBuilder struct {
@@ -16,6 +18,7 @@ type columnQueryBuilder struct {
 	alias  string
 	name   string
 	use    bool
+	count  bool
 }
 
 func createColumnQuery(entity *entity, name string) *columnQueryBuilder {
@@ -42,6 +45,11 @@ func (q *columnQueryBuilder) Use(use bool) ColumnQuery {
 	return q
 }
 
+func (q *columnQueryBuilder) Count() ColumnQuery {
+	q.count = true
+	return q
+}
+
 func (q *columnQueryBuilder) getQueryString() string {
 	result := make([]string, 0)
 	colSql := make([]string, 0)
@@ -49,9 +57,13 @@ func (q *columnQueryBuilder) getQueryString() string {
 		colSql = append(colSql, q.escape(q.entity.alias)+q.getCoupler())
 	}
 	colSql = append(colSql, q.escape(q.name))
-	result = append(result, strings.Join(colSql, ""))
+	col := strings.Join(colSql, "")
+	if q.count {
+		col = fmt.Sprintf("COUNT(%s)", col)
+	}
+	result = append(result, col)
 	if len(q.alias) > 0 {
-		result = append(result, "AS", q.escape(q.name))
+		result = append(result, "AS", q.escape(q.alias))
 	}
 	return strings.Join(result, " ")
 }

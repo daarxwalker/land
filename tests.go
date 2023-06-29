@@ -25,10 +25,9 @@ var (
 
 func testCreatePostgresInstance() Land {
 	return New(Config{
-		Production:   false,
-		Log:          true,
-		Timezone:     false,
-		DatabaseType: Postgres,
+		Production: false,
+		Log:        true,
+		Timezone:   false,
 	}, nil)
 }
 

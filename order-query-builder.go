@@ -10,7 +10,7 @@ import (
 type OrderQuery interface {
 	Asc(column string) OrderQuery
 	Desc(column string) OrderQuery
-	Slice(orders []OrderParam) OrderQuery
+	Entity(entity *entity) OrderQuery
 }
 
 type orderQueryBuilder struct {
@@ -26,14 +26,23 @@ const (
 	orderDesc = "DESC"
 )
 
-func createOrderQuery(entity *entity, columns []*columnsQueryBuilder, singleColumns []*columnQueryBuilder) *orderQueryBuilder {
+func createOrderQuery(entity *entity, columns []*columnsQueryBuilder, singleColumns []*columnQueryBuilder, orders ...OrderParam) *orderQueryBuilder {
+	for i, o := range orders {
+		orders[i].Key = strcase.ToSnake(o.Key)
+		orders[i].Direction = strings.ToUpper(o.Direction)
+	}
 	return &orderQueryBuilder{
 		queryBuilder:  createQueryBuilder().setQueryType(Order),
 		entity:        entity,
 		columns:       columns,
 		singleColumns: singleColumns,
-		orders:        make([]OrderParam, 0),
+		orders:        orders,
 	}
+}
+
+func (q *orderQueryBuilder) Entity(entity *entity) OrderQuery {
+	q.entity = entity
+	return q
 }
 
 func (q *orderQueryBuilder) Asc(column string) OrderQuery {
@@ -43,15 +52,6 @@ func (q *orderQueryBuilder) Asc(column string) OrderQuery {
 
 func (q *orderQueryBuilder) Desc(column string) OrderQuery {
 	q.orders = append(q.orders, OrderParam{Key: strcase.ToSnake(column), Direction: orderDesc})
-	return q
-}
-
-func (q *orderQueryBuilder) Slice(orders []OrderParam) OrderQuery {
-	for _, o := range orders {
-		o.Key = strcase.ToSnake(o.Key)
-		o.Direction = strings.ToUpper(o.Direction)
-		q.orders = append(q.orders, o)
-	}
 	return q
 }
 

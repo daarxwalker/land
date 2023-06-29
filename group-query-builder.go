@@ -5,8 +5,7 @@ import (
 )
 
 type GroupQuery interface {
-	Columns(columns ...string)
-	Slice(columns []string)
+	Entity(entity *entity) GroupQuery
 }
 
 type groupQueryBuilder struct {
@@ -15,20 +14,17 @@ type groupQueryBuilder struct {
 	columns []string
 }
 
-func createGroupQuery(entity *entity) *groupQueryBuilder {
+func createGroupQuery(entity *entity, columns ...string) *groupQueryBuilder {
 	return &groupQueryBuilder{
 		queryBuilder: createQueryBuilder().setQueryType(Group),
 		entity:       entity,
-		columns:      make([]string, 0),
+		columns:      columns,
 	}
 }
 
-func (q *groupQueryBuilder) Columns(columns ...string) {
-	q.columns = append(q.columns, columns...)
-}
-
-func (q *groupQueryBuilder) Slice(columns []string) {
-	q.columns = append(q.columns, columns...)
+func (q *groupQueryBuilder) Entity(entity *entity) GroupQuery {
+	q.entity = entity
+	return q
 }
 
 func (q *groupQueryBuilder) createQueryString() string {
