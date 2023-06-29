@@ -73,7 +73,7 @@ const (
 )  
 
 var (
-	Columns = []string{land.Id, Active, Name, Lastname}
+	Columns = []string{land.Id, RoleId, Active, Name, Lastname}
 )
 
 func User(l land.Land) land.Entity {  
@@ -229,7 +229,7 @@ func CreateTable(l land.Land) {
 ```go
 func AlterTable(l land.Land) {
   u.User(l).AlterTable().IfExists().
-    AddColumn("middle_name", Varchar, ColOpts{Limit: 255, NotNull: true, Unique: true}).
+    AddColumn("middle_name", land.Varchar, ColOpts{Limit: 255, NotNull: true, Unique: true}).
     RenameColumn("name", "custom_name").
     DropColumn("custom_name").
     Exec()
@@ -275,7 +275,7 @@ func GetAllLastnamesCount(l land.Land, id int) user_model.User {
     q := u.User(l).Select()  
     q.Column(u.Lastname)
     q.Column(u.Lastname).Count().Alias("lastname_count")
-    q.Group().Columns(u.Lastname)
+    q.Group(u.Lastname)
     q.GetResult(&result)  
     return result
 }
