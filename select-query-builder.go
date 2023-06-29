@@ -8,7 +8,7 @@ import (
 
 type SelectQuery interface {
 	Context(context context.Context) SelectQuery
-	Column(name string) ColumnQuery
+	Column(name ...string) ColumnQuery
 	Columns(columns ...string) ColumnsQuery
 	Where(entity ...Entity) WhereQuery
 	Join(entity ...Entity) JoinQuery
@@ -61,8 +61,12 @@ func (q *selectQueryBuilder) Context(context context.Context) SelectQuery {
 	return q
 }
 
-func (q *selectQueryBuilder) Column(name string) ColumnQuery {
-	c := createColumnQuery(q.entity, name)
+func (q *selectQueryBuilder) Column(name ...string) ColumnQuery {
+	columnName := ""
+	if len(name) > 0 {
+		columnName = name[0]
+	}
+	c := createColumnQuery(q.entity, columnName)
 	q.singleColumns = append(q.singleColumns, c)
 	return c
 }
