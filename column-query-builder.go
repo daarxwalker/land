@@ -187,7 +187,6 @@ func (q *columnQueryBuilder) createAggregateWrapper(col string) string {
 }
 
 func (q *columnQueryBuilder) createStringAggWrapper(col string) string {
-
 	stringAggCols := make([]string, 0)
 	stringAggCols = append(stringAggCols, col)
 	for _, c := range q.columns {

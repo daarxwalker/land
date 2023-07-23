@@ -5,26 +5,26 @@ import (
 	"strings"
 )
 
-type WhereQuery interface {
-	And(queries ...WhereQuery) WhereQuery
-	Column(column string) WhereQuery
-	Contains(value any) WhereQuery
-	Equal(value any) WhereQuery
-	Like(value any) WhereQuery
-	Not() WhereQuery
-	Null() WhereQuery
-	Or(queries ...WhereQuery) WhereQuery
-	Use(use bool) WhereQuery
+type ConditionQuery interface {
+	And(queries ...ConditionQuery) ConditionQuery
+	Column(column string) ConditionQuery
+	Contains(value any) ConditionQuery
+	Equal(value any) ConditionQuery
+	Like(value any) ConditionQuery
+	Not() ConditionQuery
+	Null() ConditionQuery
+	Or(queries ...ConditionQuery) ConditionQuery
+	Use(use bool) ConditionQuery
 
-	fulltext(value string) *whereQueryBuilder
-	getPtr() *whereQueryBuilder
+	fulltext(value string) *conditionQueryBuilder
+	getPtr() *conditionQueryBuilder
 }
 
-type whereQueryBuilder struct {
+type conditionQueryBuilder struct {
 	*queryBuilder
 	entity               *entity
-	orQueries            []*whereQueryBuilder
-	andQueries           []*whereQueryBuilder
+	orQueries            []*conditionQueryBuilder
+	andQueries           []*conditionQueryBuilder
 	whereType            string
 	column               string
 	valueRef             ref
@@ -41,17 +41,17 @@ const (
 	whereNull     = "null"
 )
 
-func createWhereQuery(entity *entity) *whereQueryBuilder {
-	return &whereQueryBuilder{
+func createConditionQuery(entity *entity) *conditionQueryBuilder {
+	return &conditionQueryBuilder{
 		queryBuilder: createQueryBuilder().setQueryType(Where),
 		entity:       entity,
 		use:          true,
-		orQueries:    make([]*whereQueryBuilder, 0),
-		andQueries:   make([]*whereQueryBuilder, 0),
+		orQueries:    make([]*conditionQueryBuilder, 0),
+		andQueries:   make([]*conditionQueryBuilder, 0),
 	}
 }
 
-func (q *whereQueryBuilder) And(queries ...WhereQuery) WhereQuery {
+func (q *conditionQueryBuilder) And(queries ...ConditionQuery) ConditionQuery {
 	for _, query := range queries {
 		qq := query.getPtr()
 		qq.excludeFromZeroLevel = true
@@ -60,43 +60,43 @@ func (q *whereQueryBuilder) And(queries ...WhereQuery) WhereQuery {
 	return q
 }
 
-func (q *whereQueryBuilder) Column(column string) WhereQuery {
+func (q *conditionQueryBuilder) Column(column string) ConditionQuery {
 	q.column = column
 	return q
 }
 
-func (q *whereQueryBuilder) Contains(value any) WhereQuery {
+func (q *conditionQueryBuilder) Contains(value any) ConditionQuery {
 	q.whereType = whereContains
 	q.valueRef.t = reflect.TypeOf(value)
 	q.valueRef.v = reflect.ValueOf(value)
 	return q
 }
 
-func (q *whereQueryBuilder) Equal(value any) WhereQuery {
+func (q *conditionQueryBuilder) Equal(value any) ConditionQuery {
 	q.whereType = whereEqual
 	q.valueRef.t = reflect.TypeOf(value)
 	q.valueRef.v = reflect.ValueOf(value)
 	return q
 }
 
-func (q *whereQueryBuilder) Like(value any) WhereQuery {
+func (q *conditionQueryBuilder) Like(value any) ConditionQuery {
 	q.whereType = whereLike
 	q.valueRef.t = reflect.TypeOf(value)
 	q.valueRef.v = reflect.ValueOf(value)
 	return q
 }
 
-func (q *whereQueryBuilder) Not() WhereQuery {
+func (q *conditionQueryBuilder) Not() ConditionQuery {
 	q.negation = true
 	return q
 }
 
-func (q *whereQueryBuilder) Null() WhereQuery {
+func (q *conditionQueryBuilder) Null() ConditionQuery {
 	q.whereType = whereNull
 	return q
 }
 
-func (q *whereQueryBuilder) Or(queries ...WhereQuery) WhereQuery {
+func (q *conditionQueryBuilder) Or(queries ...ConditionQuery) ConditionQuery {
 	for _, query := range queries {
 		qq := query.getPtr()
 		qq.excludeFromZeroLevel = true
@@ -105,12 +105,12 @@ func (q *whereQueryBuilder) Or(queries ...WhereQuery) WhereQuery {
 	return q
 }
 
-func (q *whereQueryBuilder) Use(use bool) WhereQuery {
+func (q *conditionQueryBuilder) Use(use bool) ConditionQuery {
 	q.use = use
 	return q
 }
 
-func (q *whereQueryBuilder) createQueryString() string {
+func (q *conditionQueryBuilder) createQueryString() string {
 	shouldBeGrouped := len(q.orQueries) > 0 || len(q.andQueries) > 0
 	result := make([]string, 0)
 	columnSql := make([]string, 0)
@@ -134,7 +134,7 @@ func (q *whereQueryBuilder) createQueryString() string {
 	return resultStr
 }
 
-func (q *whereQueryBuilder) getOperator() string {
+func (q *conditionQueryBuilder) getOperator() string {
 	switch q.whereType {
 	case whereContains:
 		if q.negation {
@@ -163,7 +163,7 @@ func (q *whereQueryBuilder) getOperator() string {
 	}
 }
 
-func (q *whereQueryBuilder) getValue() string {
+func (q *conditionQueryBuilder) getValue() string {
 	column := q.getColumn()
 	if column == nil {
 		return ""
@@ -175,7 +175,7 @@ func (q *whereQueryBuilder) getValue() string {
 	return value
 }
 
-func (q *whereQueryBuilder) getColumn() *column {
+func (q *conditionQueryBuilder) getColumn() *column {
 	for _, c := range q.entity.columns {
 		if c.name == q.column {
 			return c
@@ -184,11 +184,11 @@ func (q *whereQueryBuilder) getColumn() *column {
 	return nil
 }
 
-func (q *whereQueryBuilder) getPtr() *whereQueryBuilder {
+func (q *conditionQueryBuilder) getPtr() *conditionQueryBuilder {
 	return q
 }
 
-func (q *whereQueryBuilder) fulltext(value string) *whereQueryBuilder {
+func (q *conditionQueryBuilder) fulltext(value string) *conditionQueryBuilder {
 	q.whereType = whereFulltext
 	q.valueRef.t = reflect.TypeOf(value)
 	q.valueRef.v = reflect.ValueOf(value)

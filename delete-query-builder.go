@@ -10,14 +10,14 @@ type DeleteQuery interface {
 	Exec()
 	GetResult(dest any)
 	Return(columns ...string) DeleteQuery
-	Where(entity ...Entity) WhereQuery
+	Where(entity ...Entity) ConditionQuery
 }
 
 type deleteQueryBuilder struct {
 	*queryBuilder
 	entity   *entity
 	context  context.Context
-	wheres   []*whereQueryBuilder
+	wheres   []*conditionQueryBuilder
 	returns  []string
 	isReturn bool
 }
@@ -27,7 +27,7 @@ func createDeleteQuery(entity *entity) *deleteQueryBuilder {
 		queryBuilder: createQueryBuilder().setQueryType(Delete),
 		entity:       entity,
 		context:      context.Background(),
-		wheres:       make([]*whereQueryBuilder, 0),
+		wheres:       make([]*conditionQueryBuilder, 0),
 		returns:      make([]string, 0),
 	}
 }
@@ -50,12 +50,12 @@ func (q *deleteQueryBuilder) Return(columns ...string) DeleteQuery {
 	return q
 }
 
-func (q *deleteQueryBuilder) Where(entity ...Entity) WhereQuery {
+func (q *deleteQueryBuilder) Where(entity ...Entity) ConditionQuery {
 	e := q.entity
 	if len(entity) > 0 {
 		e = entity[0].getPtr()
 	}
-	where := createWhereQuery(e)
+	where := createConditionQuery(e)
 	q.wheres = append(q.wheres, where)
 	return where
 }

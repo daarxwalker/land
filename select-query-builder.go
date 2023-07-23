@@ -7,15 +7,18 @@ import (
 )
 
 type SelectQuery interface {
+	With(name string) WithQuery
 	Context(context context.Context) SelectQuery
 	Column(name ...string) ColumnQuery
 	Columns(columns ...string) ColumnsQuery
-	Where(entity ...Entity) WhereQuery
+	Where(entity ...Entity) ConditionQuery
+	Having(entity ...Entity) ConditionQuery
 	Join(entity ...Entity) JoinQuery
 	Fulltext(value string) SelectQuery
 	Group(columns ...string) GroupQuery
 	Order(orders ...OrderParam) OrderQuery
 	Offset(offset int) SelectQuery
+	Distinct() SelectQuery
 	Single() SelectQuery
 	Limit(limit int) SelectQuery
 	All() SelectQuery
@@ -23,6 +26,9 @@ type SelectQuery interface {
 	GetSQL() string
 	GetResult(value any)
 	Exec()
+	Exists() bool
+
+	getPtr() *selectQueryBuilder
 }
 
 type selectQueryBuilder struct {
@@ -32,10 +38,13 @@ type selectQueryBuilder struct {
 	columns       []*columnsQueryBuilder
 	singleColumns []*columnQueryBuilder
 	joins         []*joinQueryBuilder
-	wheres        []*whereQueryBuilder
+	wheres        []*conditionQueryBuilder
+	havings       []*conditionQueryBuilder
 	orders        []*orderQueryBuilder
 	groups        []*groupQueryBuilder
+	withs         []*withQueryBuilder
 	param         Param
+	distinct      bool
 }
 
 func createSelectQuery(entity *entity) *selectQueryBuilder {
@@ -46,18 +55,32 @@ func createSelectQuery(entity *entity) *selectQueryBuilder {
 		columns:       make([]*columnsQueryBuilder, 0),
 		singleColumns: make([]*columnQueryBuilder, 0),
 		joins:         make([]*joinQueryBuilder, 0),
-		wheres:        make([]*whereQueryBuilder, 0),
+		wheres:        make([]*conditionQueryBuilder, 0),
+		havings:       make([]*conditionQueryBuilder, 0),
 		orders:        make([]*orderQueryBuilder, 0),
 		groups:        make([]*groupQueryBuilder, 0),
+		withs:         make([]*withQueryBuilder, 0),
 		param: Param{
 			Limit: DefaultLimit,
 		},
+		distinct: false,
 	}
 	return q
 }
 
+func (q *selectQueryBuilder) With(name string) WithQuery {
+	w := createWithQuery(name)
+	q.withs = append(q.withs, w.getPtr())
+	return w
+}
+
 func (q *selectQueryBuilder) Context(context context.Context) SelectQuery {
 	q.context = context
+	return q
+}
+
+func (q *selectQueryBuilder) Distinct() SelectQuery {
+	q.distinct = true
 	return q
 }
 
@@ -78,11 +101,21 @@ func (q *selectQueryBuilder) Columns(columns ...string) ColumnsQuery {
 }
 
 func (q *selectQueryBuilder) Exec() {
-	createQueryManager(q.entity, q.context).setQuery(q.GetSQL()).setQueryType(Select).exec()
+	createQueryManager(q.entity, q.context).setQuery(q.GetSQL() + q.getQueryDivider()).setQueryType(Select).exec()
 }
 
 func (q *selectQueryBuilder) GetResult(dest any) {
-	createQueryManager(q.entity, q.context).setQuery(q.GetSQL()).setQueryType(Select).setDest(dest).getResult()
+	createQueryManager(q.entity, q.context).setQuery(q.GetSQL() + q.getQueryDivider()).setQueryType(Select).setDest(dest).getResult()
+}
+
+func (q *selectQueryBuilder) Exists() bool {
+	var result bool
+	createQueryManager(q.entity, q.context).
+		setQuery(fmt.Sprintf("SELECT EXISTS(%s);", strings.TrimSuffix(q.GetSQL(), q.getQueryDivider()))).
+		setQueryType(Select).
+		setDest(&result).
+		getResult()
+	return result
 }
 
 func (q *selectQueryBuilder) GetSQL() string {
@@ -111,14 +144,24 @@ func (q *selectQueryBuilder) Order(orders ...OrderParam) OrderQuery {
 	return order
 }
 
-func (q *selectQueryBuilder) Where(entity ...Entity) WhereQuery {
+func (q *selectQueryBuilder) Where(entity ...Entity) ConditionQuery {
 	e := q.entity
 	if len(entity) > 0 {
 		e = entity[0].getPtr()
 	}
-	where := createWhereQuery(e)
+	where := createConditionQuery(e)
 	q.wheres = append(q.wheres, where)
 	return where
+}
+
+func (q *selectQueryBuilder) Having(entity ...Entity) ConditionQuery {
+	e := q.entity
+	if len(entity) > 0 {
+		e = entity[0].getPtr()
+	}
+	having := createConditionQuery(e)
+	q.havings = append(q.havings, having)
+	return having
 }
 
 func (q *selectQueryBuilder) Fulltext(value string) SelectQuery {
@@ -156,13 +199,20 @@ func (q *selectQueryBuilder) All() SelectQuery {
 
 func (q *selectQueryBuilder) createQueryString() string {
 	result := make([]string, 0)
+	if len(q.withs) > 0 {
+		result = append(result, q.createWithsPart())
+	}
 	result = append(result, "SELECT")
+	if q.distinct {
+		result = append(result, "DISTINCT")
+	}
 	result = append(result, strings.Join(q.createColumnsPart(), q.getColumnsDivider()))
 	result = append(result, "FROM")
 	result = append(result, q.createFromPart()...)
 	result = append(result, q.createJoinsPart()...)
 	result = append(result, q.createWheresPart()...)
 	result = append(result, q.createGroupsPart()...)
+	result = append(result, q.createHavingsPart()...)
 	result = append(result, q.createOrdersPart()...)
 	result = append(result, q.createLimit()...)
 	result = append(result, q.createOffset()...)
@@ -200,6 +250,17 @@ func (q *selectQueryBuilder) createFromPart() []string {
 	return result
 }
 
+func (q *selectQueryBuilder) createWithsPart() string {
+	result := make([]string, 0)
+	for _, with := range q.withs {
+		result = append(result, with.createQueryString())
+	}
+	if len(result) > 0 {
+		return "WITH" + " " + strings.Join(result, ",")
+	}
+	return ""
+}
+
 func (q *selectQueryBuilder) createJoinsPart() []string {
 	result := make([]string, 0)
 	for _, join := range q.joins {
@@ -212,9 +273,9 @@ func (q *selectQueryBuilder) createFulltextConditions() {
 	if len(q.param.Fulltext) == 0 {
 		return
 	}
-	q.wheres = append(q.wheres, createWhereQuery(q.entity).Column(Vectors).fulltext(q.param.Fulltext))
+	q.wheres = append(q.wheres, createConditionQuery(q.entity).Column(Vectors).fulltext(q.param.Fulltext))
 	for _, join := range q.joins {
-		q.wheres = append(q.wheres, createWhereQuery(join.joinEntity).Column(Vectors).fulltext(q.param.Fulltext))
+		q.wheres = append(q.wheres, createConditionQuery(join.joinEntity).Column(Vectors).fulltext(q.param.Fulltext))
 	}
 }
 
@@ -233,6 +294,25 @@ func (q *selectQueryBuilder) createWheresPart() []string {
 			condition = append(condition, "AND")
 		}
 		condition = append(condition, where.createQueryString())
+		result = append(result, strings.Join(condition, " "))
+	}
+	return result
+}
+
+func (q *selectQueryBuilder) createHavingsPart() []string {
+	result := make([]string, 0)
+	for i, having := range q.havings {
+		if having.excludeFromZeroLevel {
+			continue
+		}
+		condition := make([]string, 0)
+		if i == 0 {
+			condition = append(condition, "HAVING")
+		}
+		if i > 0 {
+			condition = append(condition, "AND")
+		}
+		condition = append(condition, having.createQueryString())
 		result = append(result, strings.Join(condition, " "))
 	}
 	return result
@@ -283,4 +363,8 @@ func (q *selectQueryBuilder) createOffset() []string {
 		result = append(result, fmt.Sprintf("OFFSET %d", q.param.Offset))
 	}
 	return result
+}
+
+func (q *selectQueryBuilder) getPtr() *selectQueryBuilder {
+	return q
 }
