@@ -2,12 +2,14 @@ package land
 
 type Param struct {
 	Id       int          `json:"id"`
-	Ids      int          `json:"ids"`
+	Ids      []int        `json:"ids"`
 	Fulltext string       `json:"fulltext"`
 	Offset   int          `json:"offset"`
 	Limit    int          `json:"limit"`
 	Order    []OrderParam `json:"order"`
 	All      bool         `json:"all"`
+	Slug     string       `json:"slug"`
+	LangCode string       `json:"langCode"`
 }
 
 type OrderParam struct {

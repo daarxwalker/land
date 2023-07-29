@@ -7,6 +7,8 @@ import (
 	"time"
 
 	"github.com/dchest/uniuri"
+
+	"util/dd"
 )
 
 type Migrator interface {
@@ -108,7 +110,7 @@ func (m *migrator) Up() {
 		tx.Begin()
 		fileMigration.up(m.land)
 		tx.Commit()
-		lm.Insert().SetData(landMigration{Name: fileMigration.id}).Exec()
+		lm.Insert().SetValues(landMigration{Name: fileMigration.id}).Exec()
 		fmt.Println("### MIGRATION SUCCESS: " + fileMigration.id)
 	}
 }
@@ -164,7 +166,12 @@ func (m *migrator) getDir() string {
 	if len(root) == 0 {
 		return ""
 	}
-	return root + "/" + migrationsFolder
+	result := root + "/" + migrationsFolder
+	if len(m.migrationsManager.dbname) > 0 {
+		result += "/" + m.migrationsManager.dbname
+	}
+	dd.Print(result)
+	return result
 }
 
 func (m *migrator) getMigrationsMainFileDir() string {

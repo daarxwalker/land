@@ -3,13 +3,14 @@ package land
 import (
 	"context"
 	"reflect"
+	"slices"
 	"strings"
 
 	"github.com/iancoleman/strcase"
 )
 
 type InsertQuery interface {
-	SetData(value any) InsertQuery
+	SetValues(value any) InsertQuery
 	GetSQL() string
 	Exec()
 	GetResult(dest any)
@@ -26,6 +27,10 @@ type insertQueryBuilder struct {
 	returns  []string
 	isReturn bool
 }
+
+var (
+	insertQueryReservedColumns = []string{CreatedAt, UpdatedAt, Vectors}
+)
 
 func createInsertQuery(entity *entity) *insertQueryBuilder {
 	return &insertQueryBuilder{
@@ -48,7 +53,7 @@ func (q *insertQueryBuilder) GetResult(dest any) {
 	createQueryManager(q.entity, q.context).setQuery(q.GetSQL()).setQueryType(Insert).setDest(dest).getResult()
 }
 
-func (q *insertQueryBuilder) SetData(data any) InsertQuery {
+func (q *insertQueryBuilder) SetValues(data any) InsertQuery {
 	q.data.t = reflect.TypeOf(data)
 	q.data.v = reflect.ValueOf(data)
 	if q.data.v.Kind() == reflect.Ptr {
@@ -95,9 +100,19 @@ func (q *insertQueryBuilder) createValuesPart() string {
 		if c.name == Id || !q.data.v.IsValid() {
 			continue
 		}
+		if slices.Contains(insertQueryReservedColumns, c.name) {
+			switch c.name {
+			case CreatedAt:
+				result = append(result, CurrentTimestamp)
+			case UpdatedAt:
+				result = append(result, CurrentTimestamp)
+			case Vectors:
+				result = append(result, q.vectors)
+			}
+			continue
+		}
 		field := q.data.v.FieldByName(strcase.ToCamel(c.name))
 		if !field.IsValid() {
-			result = append(result, q.getValueOfInvalidField(c))
 			continue
 		}
 		if field.IsZero() {

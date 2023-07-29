@@ -105,7 +105,9 @@ func (q *selectQueryBuilder) Exec() {
 }
 
 func (q *selectQueryBuilder) GetResult(dest any) {
-	createQueryManager(q.entity, q.context).setQuery(q.GetSQL() + q.getQueryDivider()).setQueryType(Select).setDest(dest).getResult()
+	createQueryManager(
+		q.entity, q.context,
+	).setQuery(q.GetSQL() + q.getQueryDivider()).setQueryType(Select).setDest(dest).getResult()
 }
 
 func (q *selectQueryBuilder) Exists() bool {
@@ -216,7 +218,7 @@ func (q *selectQueryBuilder) createQueryString() string {
 	result = append(result, q.createOrdersPart()...)
 	result = append(result, q.createLimit()...)
 	result = append(result, q.createOffset()...)
-	return strings.Join(result, " ") + q.getQueryDivider()
+	return strings.Join(result, " ")
 }
 
 func (q *selectQueryBuilder) createColumnsPart() []string {

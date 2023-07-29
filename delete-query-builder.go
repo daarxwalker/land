@@ -62,7 +62,7 @@ func (q *deleteQueryBuilder) Where(entity ...Entity) ConditionQuery {
 
 func (q *deleteQueryBuilder) createQueryString() string {
 	result := make([]string, 0)
-	result = append(result, "DELETE FROM", q.escape(q.entity.name))
+	result = append(result, "DELETE FROM", q.escape(q.entity.name), "AS", q.escape(q.entity.alias))
 	result = append(result, q.createWheresPart()...)
 	result = append(result, q.createReturnPart()...)
 	return strings.Join(result, " ") + q.getQueryDivider()

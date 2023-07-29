@@ -8,6 +8,9 @@ type Land interface {
 	CreateEntity(name string) Entity
 	Migrator(migrationsManager MigrationsManager) Migrator
 	Ping() error
+	Begin() error
+	Commit() error
+	Rollback() error
 }
 
 type land struct {
@@ -31,6 +34,21 @@ func (l *land) CreateEntity(name string) Entity {
 	e := createEntity(l, name)
 	l.entities = append(l.entities, e)
 	return e
+}
+
+func (l *land) Begin() error {
+	_, err := l.db.connection.Exec("BEGIN;")
+	return err
+}
+
+func (l *land) Commit() error {
+	_, err := l.db.connection.Exec("COMMIT;")
+	return err
+}
+
+func (l *land) Rollback() error {
+	_, err := l.db.connection.Exec("ROLLBACK;")
+	return err
 }
 
 func (l *land) Migrator(migrationsManager MigrationsManager) Migrator {

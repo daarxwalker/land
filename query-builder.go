@@ -50,6 +50,19 @@ func (q *queryBuilder) createValue(column *column, value reflect.Value) string {
 	if value.Kind() == reflect.Ptr {
 		value = value.Elem()
 	}
+	if value.Kind() == reflect.Slice {
+		sliceItems := make([]string, value.Len())
+		sliceType := value.Type().Elem().Kind()
+		for i := 0; i < value.Len(); i++ {
+			switch sliceType {
+			case reflect.String:
+				sliceItems[i] = fmt.Sprintf("'%s'", value.Index(i).String())
+			case reflect.Int:
+				sliceItems[i] = fmt.Sprintf("%d", value.Index(i).Int())
+			}
+		}
+		return strings.Join(sliceItems, ",")
+	}
 	switch column.dataType {
 	case TsVector:
 		if q.queryType == Where {

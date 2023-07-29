@@ -188,7 +188,7 @@ func GetAll(l land.Land) []user_model.User {
 ```go
 func CreateOne(l land.Land, data user_model.User) user_model.User {  
     q := u.User(l).Insert()
-    q.SetData(data)  
+    q.SetValues(data)  
     q.SetVectors(data.Name, data.Lastname)
     q.Return(land.Id)  
     q.GetResult(&data)  
@@ -201,7 +201,7 @@ func CreateOne(l land.Land, data user_model.User) user_model.User {
 func UpdateOne(l land.Land, data user_model.User) user_model.User {  
     var result user_model.User
     q := u.User(l).Update()
-    q.SetData(data)  
+    q.SetValues(data)  
     q.SetVectors(data.Name, data.Lastname)
     q.Return(land.Id)  
     q.GetResult(&result)  

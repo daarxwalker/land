@@ -3,18 +3,20 @@ package land
 import (
 	"context"
 	"reflect"
+	"slices"
 	"strings"
 
 	"github.com/iancoleman/strcase"
 )
 
 type UpdateQuery interface {
-	SetData(value any) UpdateQuery
+	SetValues(value any) UpdateQuery
 	GetSQL() string
 	GetResult(dest any)
 	Exec()
 	SetVectors(values ...any) UpdateQuery
 	Return(columns ...string) UpdateQuery
+	Where(entity ...Entity) ConditionQuery
 }
 
 type updateQueryBuilder struct {
@@ -22,16 +24,22 @@ type updateQueryBuilder struct {
 	entity   *entity
 	context  context.Context
 	data     ref
+	wheres   []*conditionQueryBuilder
 	vectors  string
 	returns  []string
 	isReturn bool
 }
+
+var (
+	updateQueryReservedColumns = []string{UpdatedAt, Vectors}
+)
 
 func createUpdateQuery(entity *entity) *updateQueryBuilder {
 	return &updateQueryBuilder{
 		queryBuilder: createQueryBuilder().setQueryType(Update),
 		context:      context.Background(),
 		entity:       entity,
+		wheres:       make([]*conditionQueryBuilder, 0),
 		returns:      make([]string, 0),
 	}
 }
@@ -48,7 +56,7 @@ func (q *updateQueryBuilder) Exec() {
 	createQueryManager(q.entity, q.context).setQuery(q.GetSQL()).setQueryType(Update).exec()
 }
 
-func (q *updateQueryBuilder) SetData(data any) UpdateQuery {
+func (q *updateQueryBuilder) SetValues(data any) UpdateQuery {
 	q.data.t = reflect.TypeOf(data)
 	q.data.v = reflect.ValueOf(data)
 	if q.data.v.Kind() == reflect.Ptr {
@@ -68,10 +76,21 @@ func (q *updateQueryBuilder) SetVectors(values ...any) UpdateQuery {
 	return q
 }
 
+func (q *updateQueryBuilder) Where(entity ...Entity) ConditionQuery {
+	e := q.entity
+	if len(entity) > 0 {
+		e = entity[0].getPtr()
+	}
+	where := createConditionQuery(e)
+	q.wheres = append(q.wheres, where)
+	return where
+}
+
 func (q *updateQueryBuilder) createQueryString() string {
 	result := make([]string, 0)
-	result = append(result, "UPDATE", q.escape(q.entity.name))
+	result = append(result, "UPDATE", q.escape(q.entity.name), "AS", q.escape(q.entity.alias))
 	result = append(result, "SET", q.createSetsPart())
+	result = append(result, q.createWheresPart()...)
 	result = append(result, q.createReturnPart()...)
 	return strings.Join(result, " ") + q.getQueryDivider()
 }
@@ -79,17 +98,23 @@ func (q *updateQueryBuilder) createQueryString() string {
 func (q *updateQueryBuilder) createSetsPart() string {
 	result := make([]string, 0)
 	for _, c := range q.entity.columns {
-		if c.name == Id || !q.data.v.IsValid() {
+		if c.name == Id || c.name == CreatedAt || !q.data.v.IsValid() {
 			continue
 		}
 		setSql := make([]string, 0)
 		setSql = append(setSql, q.escape(c.name), "=")
-		field := q.data.v.FieldByName(strcase.ToCamel(c.name))
-		if !field.IsValid() {
-			if c.name == UpdatedAt {
+		if slices.Contains(updateQueryReservedColumns, c.name) {
+			switch c.name {
+			case UpdatedAt:
 				setSql = append(setSql, CurrentTimestamp)
+			case Vectors:
+				setSql = append(setSql, q.vectors)
 			}
 			result = append(result, strings.Join(setSql, " "))
+			continue
+		}
+		field := q.data.v.FieldByName(strcase.ToCamel(c.name))
+		if !field.IsValid() {
 			continue
 		}
 		if field.IsZero() {
@@ -133,15 +158,21 @@ func (q *updateQueryBuilder) createReturnPart() []string {
 	return result
 }
 
-func (q *updateQueryBuilder) getValueOfInvalidField(c *column) string {
-	switch c.name {
-	case CreatedAt:
-		return reflect.ValueOf(c.options.Default).String()
-	case UpdatedAt:
-		return reflect.ValueOf(c.options.Default).String()
-	case Vectors:
-		return q.vectors
-	default:
-		return ""
+func (q *updateQueryBuilder) createWheresPart() []string {
+	result := make([]string, 0)
+	for i, where := range q.wheres {
+		if where.excludeFromZeroLevel {
+			continue
+		}
+		condition := make([]string, 0)
+		if i == 0 {
+			condition = append(condition, "WHERE")
+		}
+		if i > 0 {
+			condition = append(condition, "AND")
+		}
+		condition = append(condition, where.createQueryString())
+		result = append(result, strings.Join(condition, " "))
 	}
+	return result
 }

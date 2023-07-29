@@ -8,10 +8,11 @@ type MigrationsManager interface {
 
 type migrationsManager struct {
 	migrations []*migration
+	dbname     string
 }
 
-func Migrations() MigrationsManager {
-	return &migrationsManager{}
+func Migrations(dbname string) MigrationsManager {
+	return &migrationsManager{dbname: dbname}
 }
 
 func (m *migrationsManager) Add(id string) Migration {

@@ -2,6 +2,8 @@ package land
 
 import (
 	"fmt"
+	"log"
+	"os"
 	"strings"
 )
 
@@ -13,6 +15,7 @@ type Connector interface {
 	Dbname(dbname string) Connector
 	Password(password string) Connector
 	SSL(sslmode string) Connector
+	CertPath(path string) Connector
 
 	getPtr() *connector
 }
@@ -25,11 +28,12 @@ type connector struct {
 	dbname   string
 	password string
 	sslmode  string
+	certpath string
 }
 
 func Connect() Connector {
 	return &connector{
-		sslmode: "disable",
+		sslmode: SSLDisable,
 	}
 }
 
@@ -72,8 +76,32 @@ func (c *connector) SSL(sslmode string) Connector {
 	return c
 }
 
+func (c *connector) CertPath(path string) Connector {
+	c.certpath = c.createFullCertPath(path)
+	return c
+}
+
+func (c *connector) createFullCertPath(path string) string {
+	root, err := os.Getwd()
+	if err != nil {
+		log.Fatalln(err)
+	}
+	result := root
+	if strings.HasSuffix(result, "/") {
+		result = strings.TrimSuffix(result, "/")
+	}
+	if !strings.HasSuffix(path, "/") {
+		path = "/" + path
+	}
+	result += path
+	return result
+}
+
 func (c *connector) createConnectionString() string {
 	result := make([]string, 0)
+	if len(c.certpath) > 0 {
+		result = append(result, fmt.Sprintf("sslrootcert=%s", c.certpath))
+	}
 	if len(c.host) > 0 {
 		result = append(result, fmt.Sprintf("host=%s", c.host))
 	}
