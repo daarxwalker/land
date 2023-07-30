@@ -35,7 +35,8 @@ const (
 )
 
 const (
-	migrationsEntityName string = "land_migrations"
+	migrationsEntityName  string = "land_migrations"
+	migrationsEntityAlias string = "lmig"
 )
 
 const (
@@ -184,6 +185,7 @@ func (m *migrator) getMigrationsMainFileDir() string {
 
 func (m *migrator) createMigrationsEntity() Entity {
 	return m.land.CreateEntity(migrationsEntityName).
+		SetAlias(migrationsEntityAlias).
 		SetColumn(Name, Text, ColOpts{NotNull: true}).
 		SetCreatedAt().
 		SetUpdatedAt()

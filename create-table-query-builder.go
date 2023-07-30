@@ -69,10 +69,19 @@ func (q *createTableQueryBuilder) createStructurePart() string {
 		if c.options.Default != nil {
 			colSql = append(colSql, "DEFAULT", q.createValue(c, reflect.ValueOf(c.options.Default)))
 		}
-		if c.options.Reference.Entity != nil && len(c.options.Reference.Column) > 0 {
-			colSql = append(colSql, "REFERENCES", q.escape(c.options.Reference.Entity.getPtr().name)+fmt.Sprintf("(%s)", q.escape(c.options.Reference.Column)))
+		if (c.options.Reference.Self && len(c.options.Reference.Column) > 0) || (c.options.Reference.Entity != nil && len(c.options.Reference.Column) > 0) {
+			colSql = append(
+				colSql, "REFERENCES", q.getReferenceName(c)+fmt.Sprintf("(%s)", q.escape(c.options.Reference.Column)),
+			)
 		}
 		result = append(result, strings.Join(colSql, " "))
 	}
 	return strings.Join(result, q.getColumnsDivider())
+}
+
+func (q *createTableQueryBuilder) getReferenceName(c *column) string {
+	if c.options.Reference.Self && c.options.Reference.Entity == nil {
+		return q.escape(q.entity.name)
+	}
+	return q.escape(c.options.Reference.Entity.getPtr().name)
 }

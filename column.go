@@ -11,6 +11,7 @@ type ColOpts struct {
 }
 
 type EntityReference struct {
+	Self   bool
 	Entity Entity
 	Column string
 }

@@ -83,6 +83,8 @@ func (q *queryBuilder) createValue(column *column, value reflect.Value) string {
 		return fmt.Sprintf(`%d`, value.Int())
 	case Float:
 		return fmt.Sprintf(`%f`, value.Float())
+	case Bool:
+		return fmt.Sprintf(`%t`, value.Bool())
 	case Boolean:
 		return fmt.Sprintf(`%t`, value.Bool())
 	case Timestamp:
