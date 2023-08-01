@@ -10,6 +10,7 @@ import (
 )
 
 type UpdateQuery interface {
+	SetColumns(columns ...string) UpdateQuery
 	SetValues(value any) UpdateQuery
 	GetSQL() string
 	GetResult(dest any)
@@ -27,6 +28,7 @@ type updateQueryBuilder struct {
 	wheres   []*conditionQueryBuilder
 	vectors  string
 	returns  []string
+	columns  []string
 	isReturn bool
 }
 
@@ -65,6 +67,11 @@ func (q *updateQueryBuilder) SetValues(data any) UpdateQuery {
 	return q
 }
 
+func (q *updateQueryBuilder) SetColumns(columns ...string) UpdateQuery {
+	q.columns = columns
+	return q
+}
+
 func (q *updateQueryBuilder) Return(columns ...string) UpdateQuery {
 	q.returns = append(q.returns, columns...)
 	q.isReturn = true
@@ -98,6 +105,9 @@ func (q *updateQueryBuilder) createQueryString() string {
 func (q *updateQueryBuilder) createSetsPart() string {
 	result := make([]string, 0)
 	for _, c := range q.entity.columns {
+		if len(q.columns) > 0 && !slices.Contains(q.columns, c.name) {
+			continue
+		}
 		if c.name == Id || c.name == CreatedAt || !q.data.v.IsValid() {
 			continue
 		}
