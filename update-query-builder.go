@@ -5,7 +5,7 @@ import (
 	"reflect"
 	"slices"
 	"strings"
-
+	
 	"github.com/iancoleman/strcase"
 )
 
@@ -61,6 +61,7 @@ func (q *updateQueryBuilder) Exec() {
 func (q *updateQueryBuilder) SetValues(data any) UpdateQuery {
 	q.data.t = reflect.TypeOf(data)
 	q.data.v = reflect.ValueOf(data)
+	q.data.kind = q.data.v.Kind()
 	if q.data.v.Kind() == reflect.Ptr {
 		q.data.v = q.data.v.Elem()
 	}
@@ -108,7 +109,7 @@ func (q *updateQueryBuilder) createSetsPart() string {
 		if len(q.columns) > 0 && !slices.Contains(q.columns, c.name) {
 			continue
 		}
-		if c.name == Id || c.name == CreatedAt || !q.data.v.IsValid() {
+		if c.name == Id || c.name == CreatedAt || !q.data.v.IsValid() || (c.name == Vectors && len(q.vectors) == 0) {
 			continue
 		}
 		setSql := make([]string, 0)
@@ -123,7 +124,13 @@ func (q *updateQueryBuilder) createSetsPart() string {
 			result = append(result, strings.Join(setSql, " "))
 			continue
 		}
-		field := q.data.v.FieldByName(strcase.ToCamel(c.name))
+		var field reflect.Value
+		switch q.data.kind {
+		case reflect.Map:
+			field = q.getMapValue(q.data.v, c.name)
+		case reflect.Struct:
+			field = q.data.v.FieldByName(strcase.ToCamel(c.name))
+		}
 		if !field.IsValid() {
 			continue
 		}

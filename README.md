@@ -15,6 +15,9 @@
 - [Migrations](#migrations)
 - [Transactions](#transactions)
 
+## Help
+- [Webalize](#webalize)
+
 ## Query
 - [Select](#select-query)
 - [Insert](#insert-query)
@@ -160,6 +163,12 @@ if someError != nil {
   tx.Rollback()
 }
 tx.Commit()
+```
+
+## Webalize
+To active webalize function, you have to run query in your database.
+```sql
+CREATE EXTENSION IF NOT EXISTS unaccent;
 ```
 
 

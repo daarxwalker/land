@@ -5,7 +5,7 @@ import (
 	"reflect"
 	"slices"
 	"strings"
-
+	
 	"github.com/iancoleman/strcase"
 )
 
@@ -56,6 +56,7 @@ func (q *insertQueryBuilder) GetResult(dest any) {
 func (q *insertQueryBuilder) SetValues(data any) InsertQuery {
 	q.data.t = reflect.TypeOf(data)
 	q.data.v = reflect.ValueOf(data)
+	q.data.kind = q.data.v.Kind()
 	if q.data.v.Kind() == reflect.Ptr {
 		q.data.v = q.data.v.Elem()
 	}
@@ -111,7 +112,13 @@ func (q *insertQueryBuilder) createValuesPart() string {
 			}
 			continue
 		}
-		field := q.data.v.FieldByName(strcase.ToCamel(c.name))
+		var field reflect.Value
+		switch q.data.kind {
+		case reflect.Map:
+			field = q.getMapValue(q.data.v, c.name)
+		case reflect.Struct:
+			field = q.data.v.FieldByName(strcase.ToCamel(c.name))
+		}
 		if !field.IsValid() {
 			continue
 		}

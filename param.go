@@ -9,7 +9,6 @@ type Param struct {
 	Order    []OrderParam `json:"order"`
 	All      bool         `json:"all"`
 	Slug     string       `json:"slug"`
-	LangCode string       `json:"langCode"`
 }
 
 type OrderParam struct {

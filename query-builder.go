@@ -43,6 +43,10 @@ func (q *queryBuilder) createDataType(c *column) string {
 	return strings.ToUpper(c.dataType)
 }
 
+func (q *queryBuilder) getMapValue(mapValue reflect.Value, key string) reflect.Value {
+	return mapValue.MapIndex(reflect.ValueOf(key))
+}
+
 func (q *queryBuilder) createValue(column *column, value reflect.Value) string {
 	if column == nil {
 		return ""
@@ -51,19 +55,69 @@ func (q *queryBuilder) createValue(column *column, value reflect.Value) string {
 		value = value.Elem()
 	}
 	if value.Kind() == reflect.Slice {
-		sliceItems := make([]string, value.Len())
-		sliceType := value.Type().Elem().Kind()
-		for i := 0; i < value.Len(); i++ {
-			switch sliceType {
-			case reflect.String:
-				sliceItems[i] = fmt.Sprintf("'%s'", value.Index(i).String())
-			case reflect.Int:
-				sliceItems[i] = fmt.Sprintf("%d", value.Index(i).Int())
-			}
-		}
-		return strings.Join(sliceItems, ",")
+		return q.createSliceValue(value)
 	}
-	switch column.dataType {
+	return q.createAnyValue(column, value)
+}
+
+func (q *queryBuilder) createSliceValue(value reflect.Value) string {
+	sliceItems := make([]string, value.Len())
+	sliceType := value.Type().Elem().Kind()
+	for i := 0; i < value.Len(); i++ {
+		switch sliceType {
+		case reflect.String:
+			sliceItems[i] = fmt.Sprintf("'%s'", value.Index(i).String())
+		case reflect.Int:
+			sliceItems[i] = fmt.Sprintf("%d", value.Index(i).Int())
+		}
+	}
+	return strings.Join(sliceItems, ",")
+}
+
+func (q *queryBuilder) createAnyValue(column *column, value reflect.Value) string {
+	if value.Kind() == reflect.Interface {
+		value = reflect.ValueOf(value.Interface())
+	}
+	if !q.validateValueKind(column.dataType, value) {
+		return ""
+	}
+	return q.getValueByColumnDataType(column.dataType, value)
+}
+
+func (q *queryBuilder) validateValueKind(dataType string, value reflect.Value) bool {
+	kind := value.Kind()
+	switch dataType {
+	case TsVector:
+		return kind == reflect.String
+	case Varchar:
+		return kind == reflect.String
+	case Text:
+		return kind == reflect.String
+	case Char:
+		return kind == reflect.String
+	case Serial:
+		return kind == reflect.Int
+	case Int:
+		return kind == reflect.Int
+	case BigInt:
+		return kind == reflect.Int
+	case Float:
+		return kind == reflect.Float32 || kind == reflect.Float64
+	case Bool:
+		return kind == reflect.Bool
+	case Boolean:
+		return kind == reflect.Bool
+	case Timestamp:
+		return kind == reflect.String
+	case TimestampWithZone:
+		return kind == reflect.String
+	default:
+		return false
+	}
+}
+
+func (q *queryBuilder) getValueByColumnDataType(dataType string, value reflect.Value) string {
+	switch dataType {
 	case TsVector:
 		if q.queryType == Where {
 			return fmt.Sprintf(`%s`, createTSQuery(value.String()))

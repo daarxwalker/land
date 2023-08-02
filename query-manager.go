@@ -7,7 +7,7 @@ import (
 	"reflect"
 	"strings"
 	"time"
-
+	
 	"github.com/iancoleman/strcase"
 )
 
@@ -94,31 +94,25 @@ func (m *queryManager) scan() {
 
 func (m *queryManager) createResultDataModel() reflect.Value {
 	var model reflect.Value
-	switch m.resultType {
-	case reflect.Map.String():
-		model = m.destRef.v
-	case reflect.Slice.String():
+	if m.resultType == reflect.Slice.String() {
 		switch m.destRef.t.Elem().Kind() {
 		case reflect.Struct:
 			model = reflect.New(m.destRef.t.Elem()).Elem()
 		case reflect.Map:
 			model = reflect.MakeMapWithSize(m.destRef.t.Elem(), 0)
 		}
-	case reflect.Struct.String():
-		model = m.destRef.v
+		return model
 	}
+	model = m.destRef.v
 	return model
 }
 
 func (m *queryManager) fillResultWithDataModel(rowModel reflect.Value) {
-	switch m.resultType {
-	case reflect.Map.String():
-		m.destRef.v.Set(rowModel)
-	case reflect.Slice.String():
+	if m.resultType == reflect.Slice.String() {
 		m.destRef.v.Set(reflect.Append(m.destRef.v, rowModel))
-	case reflect.Struct.String():
-		m.destRef.v.Set(rowModel)
+		return
 	}
+	m.destRef.v.Set(rowModel)
 }
 
 func (m *queryManager) setResultFieldValue(rowModel reflect.Value, ct *sql.ColumnType, value any) {
@@ -127,6 +121,10 @@ func (m *queryManager) setResultFieldValue(rowModel reflect.Value, ct *sql.Colum
 	}
 	if m.isResultMap() || m.isResultSliceOfMaps() {
 		rowModel.SetMapIndex(reflect.ValueOf(ct.Name()), reflect.ValueOf(value).Elem())
+		return
+	}
+	if rowModel.Kind() != reflect.Struct {
+		rowModel.Set(reflect.ValueOf(value).Elem())
 		return
 	}
 	field := rowModel.FieldByName(strcase.ToCamel(ct.Name()))

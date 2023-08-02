@@ -21,13 +21,13 @@ type SelectQuery interface {
 	Distinct() SelectQuery
 	Single() SelectQuery
 	Limit(limit int) SelectQuery
+	Exists() bool
 	All() SelectQuery
 	Param(param Param) SelectQuery
 	GetSQL() string
 	GetResult(value any)
 	Exec()
-	Exists() bool
-
+	
 	getPtr() *selectQueryBuilder
 }
 
@@ -101,13 +101,13 @@ func (q *selectQueryBuilder) Columns(columns ...string) ColumnsQuery {
 }
 
 func (q *selectQueryBuilder) Exec() {
-	createQueryManager(q.entity, q.context).setQuery(q.GetSQL() + q.getQueryDivider()).setQueryType(Select).exec()
+	createQueryManager(q.entity, q.context).setQuery(q.GetSQL()).setQueryType(Select).exec()
 }
 
 func (q *selectQueryBuilder) GetResult(dest any) {
 	createQueryManager(
 		q.entity, q.context,
-	).setQuery(q.GetSQL() + q.getQueryDivider()).setQueryType(Select).setDest(dest).getResult()
+	).setQuery(q.GetSQL()).setQueryType(Select).setDest(dest).getResult()
 }
 
 func (q *selectQueryBuilder) Exists() bool {
@@ -121,7 +121,7 @@ func (q *selectQueryBuilder) Exists() bool {
 }
 
 func (q *selectQueryBuilder) GetSQL() string {
-	return q.createQueryString()
+	return q.createQueryString() + q.getQueryDivider()
 }
 
 func (q *selectQueryBuilder) Join(entity ...Entity) JoinQuery {

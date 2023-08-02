@@ -13,9 +13,10 @@ type ConditionQuery interface {
 	Like(value any) ConditionQuery
 	Not() ConditionQuery
 	Null() ConditionQuery
+	Webalize() ConditionQuery
 	Or(queries ...ConditionQuery) ConditionQuery
 	Use(use bool) ConditionQuery
-
+	
 	fulltext(value string) *conditionQueryBuilder
 	getPtr() *conditionQueryBuilder
 }
@@ -31,6 +32,7 @@ type conditionQueryBuilder struct {
 	excludeFromZeroLevel bool
 	use                  bool
 	negation             bool
+	webalize             bool
 }
 
 const (
@@ -67,15 +69,13 @@ func (q *conditionQueryBuilder) Column(column string) ConditionQuery {
 
 func (q *conditionQueryBuilder) Contains(value any) ConditionQuery {
 	q.whereType = whereContains
-	q.valueRef.t = reflect.TypeOf(value)
-	q.valueRef.v = reflect.ValueOf(value)
+	q.createValueRef(value)
 	return q
 }
 
 func (q *conditionQueryBuilder) Equal(value any) ConditionQuery {
 	q.whereType = whereEqual
-	q.valueRef.t = reflect.TypeOf(value)
-	q.valueRef.v = reflect.ValueOf(value)
+	q.createValueRef(value)
 	return q
 }
 
@@ -83,6 +83,7 @@ func (q *conditionQueryBuilder) Like(value any) ConditionQuery {
 	q.whereType = whereLike
 	q.valueRef.t = reflect.TypeOf(value)
 	q.valueRef.v = reflect.ValueOf(value)
+	q.valueRef.kind = q.valueRef.v.Kind()
 	return q
 }
 
@@ -110,6 +111,17 @@ func (q *conditionQueryBuilder) Use(use bool) ConditionQuery {
 	return q
 }
 
+func (q *conditionQueryBuilder) Webalize() ConditionQuery {
+	q.webalize = true
+	return q
+}
+
+func (q *conditionQueryBuilder) createValueRef(value any) {
+	q.valueRef.t = reflect.TypeOf(value)
+	q.valueRef.v = reflect.ValueOf(value)
+	q.valueRef.kind = q.valueRef.v.Kind()
+}
+
 func (q *conditionQueryBuilder) createQueryString() string {
 	shouldBeGrouped := len(q.orQueries) > 0 || len(q.andQueries) > 0
 	result := make([]string, 0)
@@ -118,7 +130,11 @@ func (q *conditionQueryBuilder) createQueryString() string {
 		columnSql = append(columnSql, q.escape(q.entity.alias)+q.getCoupler())
 	}
 	columnSql = append(columnSql, q.escape(q.column))
-	result = append(result, strings.Join(columnSql, ""))
+	col := strings.Join(columnSql, "")
+	if q.webalize {
+		col = webalize(col)
+	}
+	result = append(result, col)
 	result = append(result, q.getOperator())
 	result = append(result, q.getValue())
 	for _, item := range q.andQueries {
@@ -169,6 +185,9 @@ func (q *conditionQueryBuilder) getValue() string {
 		return ""
 	}
 	value := q.createValue(column, q.valueRef.v)
+	if q.webalize {
+		value = webalize(value)
+	}
 	if q.whereType == whereContains {
 		return "(" + value + ")"
 	}

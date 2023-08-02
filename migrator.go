@@ -5,10 +5,8 @@ import (
 	"os"
 	"strconv"
 	"time"
-
+	
 	"github.com/dchest/uniuri"
-
-	"util/dd"
 )
 
 type Migrator interface {
@@ -171,7 +169,6 @@ func (m *migrator) getDir() string {
 	if len(m.migrationsManager.dbname) > 0 {
 		result += "/" + m.migrationsManager.dbname
 	}
-	dd.Print(result)
 	return result
 }
 

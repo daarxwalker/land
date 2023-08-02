@@ -19,7 +19,8 @@ type ColumnQuery interface {
 	Max() ColumnQuery
 	Subquery(query SelectQuery) ColumnQuery
 	Separator(separator string) ColumnQuery
-
+	Webalize() ColumnQuery
+	
 	getPtr() *columnQueryBuilder
 }
 
@@ -30,6 +31,7 @@ type columnQueryBuilder struct {
 	name          string
 	subquery      string
 	subqueryExist bool
+	webalize      bool
 	use           bool
 	aggregate     string
 	separator     string
@@ -80,7 +82,7 @@ func (q *columnQueryBuilder) Use(use bool) ColumnQuery {
 }
 
 func (q *columnQueryBuilder) Subquery(query SelectQuery) ColumnQuery {
-	q.subquery = query.GetSQL()
+	q.subquery = strings.TrimSuffix(query.GetSQL(), q.getQueryDivider())
 	q.subqueryExist = len(q.subquery) > 0
 	return q
 }
@@ -128,6 +130,12 @@ func (q *columnQueryBuilder) Separator(separator string) ColumnQuery {
 	return q
 }
 
+func (q *columnQueryBuilder) Webalize() ColumnQuery {
+	q.webalize = true
+	q.alias = q.name
+	return q
+}
+
 func (q *columnQueryBuilder) getQueryString() string {
 	if q.shouldUseEmpty() {
 		return q.createEmptyString()
@@ -146,6 +154,9 @@ func (q *columnQueryBuilder) getQueryString() string {
 	col := strings.Join(colSql, "")
 	if len(q.aggregate) > 0 {
 		col = q.createAggregateWrapper(col)
+	}
+	if q.webalize {
+		col = webalize(col)
 	}
 	result = append(result, col)
 	if len(q.alias) > 0 {

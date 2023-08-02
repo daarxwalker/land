@@ -1,10 +1,11 @@
 package land
 
 import (
+	"fmt"
 	"regexp"
 	"strings"
 	"unicode"
-
+	
 	"golang.org/x/text/runes"
 	"golang.org/x/text/transform"
 	"golang.org/x/text/unicode/norm"
@@ -31,4 +32,8 @@ func simplify(value string) string {
 	value = strings.ToLower(value)
 	value = latinize(value)
 	return value
+}
+
+func webalize(column string) string {
+	return fmt.Sprintf("unaccent(lower(replace(%s, ' ', '-')))", column)
 }

@@ -2,7 +2,7 @@ package land
 
 import (
 	"testing"
-
+	
 	"github.com/stretchr/testify/assert"
 )
 
@@ -12,5 +12,5 @@ func TestDelete(t *testing.T) {
 		Delete()
 	q.Where().Column(Id).Equal(1)
 	q.Return(Id)
-	test.Equal(`DELETE FROM "tests" WHERE "t"."id" = 1 RETURNING "id";`, q.GetSQL())
+	test.Equal(`DELETE FROM "tests" AS "t" WHERE "t"."id" = 1 RETURNING "id";`, q.GetSQL())
 }
