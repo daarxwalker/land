@@ -102,7 +102,7 @@ func (q *queryBuilder) validateValueKind(dataType string, value reflect.Value) b
 	case BigInt:
 		return kind == reflect.Int
 	case Float:
-		return kind == reflect.Float32 || kind == reflect.Float64
+		return kind == reflect.Float32 || kind == reflect.Float64 || kind == reflect.Int
 	case Bool:
 		return kind == reflect.Bool
 	case Boolean:
@@ -136,6 +136,9 @@ func (q *queryBuilder) getValueByColumnDataType(dataType string, value reflect.V
 	case BigInt:
 		return fmt.Sprintf(`%d`, value.Int())
 	case Float:
+		if value.Kind() == reflect.Int {
+			return fmt.Sprintf(`%d`, value.Int())
+		}
 		return fmt.Sprintf(`%f`, value.Float())
 	case Bool:
 		return fmt.Sprintf(`%t`, value.Bool())
