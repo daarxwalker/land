@@ -5,6 +5,7 @@ import (
 	"reflect"
 	"slices"
 	"strings"
+	"time"
 )
 
 type queryBuilder struct {
@@ -34,6 +35,10 @@ func (q *queryBuilder) getCoupler() string {
 
 func (q *queryBuilder) getQueryDivider() string {
 	return ";"
+}
+
+func (q *queryBuilder) getTimestampFormat() string {
+	return "YYYY-MM-DD HH:MI:SS"
 }
 
 func (q *queryBuilder) createDataType(c *column) string {
@@ -108,9 +113,9 @@ func (q *queryBuilder) validateValueKind(dataType string, value reflect.Value) b
 	case Boolean:
 		return kind == reflect.Bool
 	case Timestamp:
-		return kind == reflect.String
+		return kind == reflect.Struct
 	case TimestampWithZone:
-		return kind == reflect.String
+		return kind == reflect.Struct
 	default:
 		return false
 	}
@@ -145,10 +150,32 @@ func (q *queryBuilder) getValueByColumnDataType(dataType string, value reflect.V
 	case Boolean:
 		return fmt.Sprintf(`%t`, value.Bool())
 	case Timestamp:
-		return fmt.Sprintf(`%v`, value.Interface())
+		return fmt.Sprintf("'%s'", value.Interface().(time.Time).Format(time.DateTime))
 	case TimestampWithZone:
-		return fmt.Sprintf(`%v`, value.Interface())
+		return fmt.Sprintf("'%s'", value.Interface().(time.Time).Format(time.DateTime))
 	default:
 		return ""
 	}
+}
+
+func (q *queryBuilder) createDefaultValue(column *column, value reflect.Value) reflect.Value {
+	if value.IsValid() {
+		return value
+	}
+	if column.dataType == TsVector {
+		if q.queryType == Where {
+			return reflect.ValueOf(createTSQuery(""))
+		}
+		return reflect.ValueOf(createTSVectors(""))
+	}
+	if slices.Contains([]string{Timestamp, TimestampWithZone}, column.dataType) {
+		return reflect.ValueOf(CurrentTimestamp)
+	}
+	if slices.Contains([]string{Bool, Boolean}, column.dataType) {
+		return reflect.ValueOf(0)
+	}
+	if slices.Contains([]string{Int, BigInt, Float}, column.dataType) {
+		return reflect.ValueOf(0)
+	}
+	return reflect.ValueOf("")
 }

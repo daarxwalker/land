@@ -2,6 +2,9 @@ package land
 
 import (
 	"errors"
+	"fmt"
+	
+	"github.com/iancoleman/strcase"
 )
 
 type Land interface {
@@ -11,6 +14,8 @@ type Land interface {
 	Begin() error
 	Commit() error
 	Rollback() error
+	Query(query string, args ...any) ([]map[string]any, error)
+	FixSequence(table string) error
 }
 
 type land struct {
@@ -36,6 +41,35 @@ func (l *land) CreateEntity(name string) Entity {
 	return e
 }
 
+func (l *land) Query(query string, args ...any) ([]map[string]any, error) {
+	result := make([]map[string]any, 0)
+	rows, err := l.db.connection.Query(query, args...)
+	if err != nil {
+		return result, err
+	}
+	cols, err := rows.Columns()
+	if err != nil {
+		return result, err
+	}
+	for rows.Next() {
+		rowCols := make([]any, len(cols))
+		rowColsPtrs := make([]any, len(cols))
+		for i, _ := range rowCols {
+			rowColsPtrs[i] = &rowCols[i]
+		}
+		err = rows.Scan(rowColsPtrs...)
+		if err != nil {
+			return result, err
+		}
+		rowResult := make(map[string]any)
+		for i, columnName := range cols {
+			rowResult[columnName] = *(rowColsPtrs[i].(*any))
+		}
+		result = append(result, rowResult)
+	}
+	return result, rows.Close()
+}
+
 func (l *land) Begin() error {
 	_, err := l.db.connection.Exec("BEGIN;")
 	return err
@@ -48,6 +82,12 @@ func (l *land) Commit() error {
 
 func (l *land) Rollback() error {
 	_, err := l.db.connection.Exec("ROLLBACK;")
+	return err
+}
+
+func (l *land) FixSequence(table string) error {
+	table = strcase.ToSnake(table)
+	_, err := l.db.connection.Exec(fmt.Sprintf("SELECT setval('%[1]s_id_seq', (SELECT MAX(id) FROM %[1]s));", table))
 	return err
 }
 

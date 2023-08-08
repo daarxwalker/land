@@ -10,8 +10,10 @@ type ColumnQuery interface {
 	Entity(entity Entity) ColumnQuery
 	Alias(alias string) ColumnQuery
 	Use(use bool) ColumnQuery
+	Not() ColumnQuery
 	Avg() ColumnQuery
 	Count() ColumnQuery
+	Length() ColumnQuery
 	Sum() ColumnQuery
 	ArrayAgg() ColumnQuery
 	StringAgg(columns ...ColumnQuery) ColumnQuery
@@ -20,32 +22,49 @@ type ColumnQuery interface {
 	Subquery(query SelectQuery) ColumnQuery
 	Separator(separator string) ColumnQuery
 	Webalize() ColumnQuery
+	Greater(value any) ColumnQuery
+	GreaterEqual(value any) ColumnQuery
+	Less(value any) ColumnQuery
+	LessEqual(value any) ColumnQuery
+	Equal(value any) ColumnQuery
 	
 	getPtr() *columnQueryBuilder
 }
 
 type columnQueryBuilder struct {
 	*queryBuilder
-	entity        *entity
-	alias         string
-	name          string
-	subquery      string
-	subqueryExist bool
-	webalize      bool
-	use           bool
-	aggregate     string
-	separator     string
-	columns       []*columnQueryBuilder
+	entity            *entity
+	alias             string
+	name              string
+	subquery          string
+	subqueryExist     bool
+	webalize          bool
+	use               bool
+	negation          bool
+	aggregate         string
+	compareExpression string
+	compareValue      any
+	separator         string
+	columns           []*columnQueryBuilder
 }
 
 const (
 	aggregateAvg       = "avg"
 	aggregateArrayAgg  = "array-agg"
 	aggregateCount     = "count"
+	aggregateLength    = "length"
 	aggregateSum       = "sum"
 	aggregateMax       = "max"
 	aggregateMin       = "min"
 	aggregateStringAgg = "string-agg"
+)
+
+const (
+	compareGreater      = "greater"
+	compareGreaterEqual = "greater-equal"
+	compareLess         = "less"
+	compareLessEqual    = "less-equal"
+	compareEqual        = "equal"
 )
 
 const (
@@ -81,9 +100,42 @@ func (q *columnQueryBuilder) Use(use bool) ColumnQuery {
 	return q
 }
 
+func (q *columnQueryBuilder) Not() ColumnQuery {
+	q.negation = true
+	return q
+}
+
 func (q *columnQueryBuilder) Subquery(query SelectQuery) ColumnQuery {
 	q.subquery = strings.TrimSuffix(query.GetSQL(), q.getQueryDivider())
 	q.subqueryExist = len(q.subquery) > 0
+	return q
+}
+
+func (q *columnQueryBuilder) Greater(value any) ColumnQuery {
+	q.compareExpression = compareGreater
+	q.compareValue = value
+	return q
+}
+
+func (q *columnQueryBuilder) GreaterEqual(value any) ColumnQuery {
+	q.compareExpression = compareGreaterEqual
+	q.compareValue = value
+	return q
+}
+
+func (q *columnQueryBuilder) Less(value any) ColumnQuery {
+	q.compareExpression = compareLess
+	q.compareValue = value
+	return q
+}
+func (q *columnQueryBuilder) LessEqual(value any) ColumnQuery {
+	q.compareExpression = compareLessEqual
+	q.compareValue = value
+	return q
+}
+func (q *columnQueryBuilder) Equal(value any) ColumnQuery {
+	q.compareExpression = compareEqual
+	q.compareValue = value
 	return q
 }
 
@@ -107,6 +159,11 @@ func (q *columnQueryBuilder) StringAgg(columns ...ColumnQuery) ColumnQuery {
 
 func (q *columnQueryBuilder) Count() ColumnQuery {
 	q.aggregate = aggregateCount
+	return q
+}
+
+func (q *columnQueryBuilder) Length() ColumnQuery {
+	q.aggregate = aggregateLength
 	return q
 }
 
@@ -155,6 +212,9 @@ func (q *columnQueryBuilder) getQueryString() string {
 	if len(q.aggregate) > 0 {
 		col = q.createAggregateWrapper(col)
 	}
+	if len(q.compareExpression) > 0 && q.compareValue != nil {
+		col = q.createCompare(col)
+	}
 	if q.webalize {
 		col = webalize(col)
 	}
@@ -187,6 +247,8 @@ func (q *columnQueryBuilder) createAggregateWrapper(col string) string {
 		col = fmt.Sprintf("MAX(%s)", col)
 	case aggregateCount:
 		col = fmt.Sprintf("COUNT(%s)", col)
+	case aggregateLength:
+		col = fmt.Sprintf("LENGTH(%s)", col)
 	case aggregateSum:
 		col = fmt.Sprintf("SUM(%s)", col)
 	case aggregateArrayAgg:
@@ -195,6 +257,33 @@ func (q *columnQueryBuilder) createAggregateWrapper(col string) string {
 		col = q.createStringAggWrapper(col)
 	}
 	return col
+}
+
+func (q *columnQueryBuilder) createCompare(column string) string {
+	var value string
+	switch q.compareValue.(type) {
+	case string:
+		value = fmt.Sprintf("'%v'", value)
+	default:
+		value = fmt.Sprintf("%v", value)
+	}
+	switch q.compareExpression {
+	case compareGreater:
+		return fmt.Sprintf("%s > %s", column, value)
+	case compareGreaterEqual:
+		return fmt.Sprintf("%s >= %s", column, value)
+	case compareLess:
+		return fmt.Sprintf("%s < %s", column, value)
+	case compareLessEqual:
+		return fmt.Sprintf("%s <= %s", column, value)
+	case compareEqual:
+		if q.negation {
+			return fmt.Sprintf("%s != %s", column, value)
+		}
+		return fmt.Sprintf("%s = %s", column, value)
+	default:
+		return ""
+	}
 }
 
 func (q *columnQueryBuilder) createStringAggWrapper(col string) string {

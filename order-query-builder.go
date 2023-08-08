@@ -3,14 +3,14 @@ package land
 import (
 	"slices"
 	"strings"
-
+	
 	"github.com/iancoleman/strcase"
 )
 
 type OrderQuery interface {
 	Asc(column string) OrderQuery
 	Desc(column string) OrderQuery
-	Entity(entity *entity) OrderQuery
+	Entity(entity Entity) OrderQuery
 }
 
 type orderQueryBuilder struct {
@@ -26,7 +26,9 @@ const (
 	orderDesc = "DESC"
 )
 
-func createOrderQuery(entity *entity, columns []*columnsQueryBuilder, singleColumns []*columnQueryBuilder, orders ...OrderParam) *orderQueryBuilder {
+func createOrderQuery(
+	entity *entity, columns []*columnsQueryBuilder, singleColumns []*columnQueryBuilder, orders ...OrderParam,
+) *orderQueryBuilder {
 	for i, o := range orders {
 		orders[i].Key = strcase.ToSnake(o.Key)
 		orders[i].Direction = strings.ToUpper(o.Direction)
@@ -40,8 +42,8 @@ func createOrderQuery(entity *entity, columns []*columnsQueryBuilder, singleColu
 	}
 }
 
-func (q *orderQueryBuilder) Entity(entity *entity) OrderQuery {
-	q.entity = entity
+func (q *orderQueryBuilder) Entity(entity Entity) OrderQuery {
+	q.entity = entity.getPtr()
 	return q
 }
 

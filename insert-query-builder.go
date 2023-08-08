@@ -3,7 +3,6 @@ package land
 import (
 	"context"
 	"reflect"
-	"slices"
 	"strings"
 	
 	"github.com/iancoleman/strcase"
@@ -11,6 +10,8 @@ import (
 
 type InsertQuery interface {
 	SetValues(value any) InsertQuery
+	CustomId() InsertQuery
+	CustomTimestamp() InsertQuery
 	GetSQL() string
 	Exec()
 	GetResult(dest any)
@@ -20,17 +21,15 @@ type InsertQuery interface {
 
 type insertQueryBuilder struct {
 	*queryBuilder
-	entity   *entity
-	context  context.Context
-	data     ref
-	vectors  string
-	returns  []string
-	isReturn bool
+	entity          *entity
+	context         context.Context
+	data            ref
+	vectors         string
+	returns         []string
+	isReturn        bool
+	customId        bool
+	customTimestamp bool
 }
-
-var (
-	insertQueryReservedColumns = []string{CreatedAt, UpdatedAt, Vectors}
-)
 
 func createInsertQuery(entity *entity) *insertQueryBuilder {
 	return &insertQueryBuilder{
@@ -43,6 +42,16 @@ func createInsertQuery(entity *entity) *insertQueryBuilder {
 
 func (q *insertQueryBuilder) GetSQL() string {
 	return q.createQueryString()
+}
+
+func (q *insertQueryBuilder) CustomId() InsertQuery {
+	q.customId = true
+	return q
+}
+
+func (q *insertQueryBuilder) CustomTimestamp() InsertQuery {
+	q.customTimestamp = true
+	return q
 }
 
 func (q *insertQueryBuilder) Exec() {
@@ -87,7 +96,7 @@ func (q *insertQueryBuilder) createQueryString() string {
 func (q *insertQueryBuilder) createColumnsPart() string {
 	result := make([]string, 0)
 	for _, c := range q.entity.columns {
-		if c.name == Id {
+		if !q.customId && c.name == Id {
 			continue
 		}
 		result = append(result, q.escape(c.name))
@@ -98,18 +107,22 @@ func (q *insertQueryBuilder) createColumnsPart() string {
 func (q *insertQueryBuilder) createValuesPart() string {
 	result := make([]string, 0)
 	for _, c := range q.entity.columns {
-		if c.name == Id || !q.data.v.IsValid() {
+		if !q.data.v.IsValid() {
 			continue
 		}
-		if slices.Contains(insertQueryReservedColumns, c.name) {
-			switch c.name {
-			case CreatedAt:
-				result = append(result, CurrentTimestamp)
-			case UpdatedAt:
-				result = append(result, CurrentTimestamp)
-			case Vectors:
-				result = append(result, q.vectors)
-			}
+		if !q.customId && c.name == Id {
+			continue
+		}
+		if !q.customTimestamp && c.name == CreatedAt {
+			result = append(result, CurrentTimestamp)
+			continue
+		}
+		if !q.customTimestamp && c.name == UpdatedAt {
+			result = append(result, CurrentTimestamp)
+			continue
+		}
+		if c.name == Vectors {
+			result = append(result, q.vectors)
 			continue
 		}
 		var field reflect.Value
@@ -122,8 +135,12 @@ func (q *insertQueryBuilder) createValuesPart() string {
 		if !field.IsValid() {
 			continue
 		}
-		if field.IsZero() {
-			result = append(result, q.createValue(c, reflect.ValueOf(c.options.Default)))
+		if field.IsZero() && !c.options.NotNull {
+			result = append(result, "NULL")
+			continue
+		}
+		if field.IsZero() && c.options.NotNull {
+			result = append(result, q.createValue(c, q.createDefaultValue(c, reflect.ValueOf(c.options.Default))))
 			continue
 		}
 		result = append(result, q.createValue(c, field))
@@ -147,17 +164,4 @@ func (q *insertQueryBuilder) createReturnPart() []string {
 	}
 	result = append(result, strings.Join(returnCols, q.getColumnsDivider()))
 	return result
-}
-
-func (q *insertQueryBuilder) getValueOfInvalidField(c *column) string {
-	switch c.name {
-	case CreatedAt:
-		return reflect.ValueOf(c.options.Default).String()
-	case UpdatedAt:
-		return reflect.ValueOf(c.options.Default).String()
-	case Vectors:
-		return q.vectors
-	default:
-		return ""
-	}
 }

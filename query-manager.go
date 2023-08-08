@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"fmt"
 	"reflect"
+	"slices"
 	"strings"
 	"time"
 	
@@ -77,16 +78,25 @@ func (m *queryManager) scan() {
 		m.entity.errorManager.check(rows.Close(), m.query)
 	}()
 	columnsTypes, err := rows.ColumnTypes()
-	m.entity.errorManager.check(err, m.query)
 	for rows.Next() {
 		row := make([]any, len(columnsTypes))
-		for i, ct := range columnsTypes {
-			row[i] = m.createScanRowColumn(ct.DatabaseTypeName())
+		for i, _ := range columnsTypes {
+			row[i] = new(any)
 		}
 		err = rows.Scan(row...)
 		rowModel := m.createResultDataModel()
+		if !rowModel.IsValid() {
+			continue
+		}
 		for i, ct := range columnsTypes {
-			m.setResultFieldValue(rowModel, ct, row[i])
+			col := reflect.ValueOf(row[i])
+			if col.Kind() == reflect.Ptr {
+				col = col.Elem()
+			}
+			if col.Kind() == reflect.Interface {
+				col = col.Elem()
+			}
+			m.setResultFieldValue(rowModel, ct, m.standardizeFieldValue(col))
 		}
 		m.fillResultWithDataModel(rowModel)
 	}
@@ -115,22 +125,33 @@ func (m *queryManager) fillResultWithDataModel(rowModel reflect.Value) {
 	m.destRef.v.Set(rowModel)
 }
 
-func (m *queryManager) setResultFieldValue(rowModel reflect.Value, ct *sql.ColumnType, value any) {
-	if !rowModel.IsValid() {
-		return
-	}
+func (m *queryManager) setResultFieldValue(rowModel reflect.Value, ct *sql.ColumnType, value reflect.Value) {
+	
 	if m.isResultMap() || m.isResultSliceOfMaps() {
-		rowModel.SetMapIndex(reflect.ValueOf(ct.Name()), reflect.ValueOf(value).Elem())
+		rowModel.SetMapIndex(reflect.ValueOf(ct.Name()), value)
 		return
 	}
 	if rowModel.Kind() != reflect.Struct {
-		rowModel.Set(reflect.ValueOf(value).Elem())
+		rowModel.Set(value)
 		return
 	}
 	field := rowModel.FieldByName(strcase.ToCamel(ct.Name()))
-	if field.IsValid() {
-		field.Set(reflect.ValueOf(value).Elem())
+	if !field.IsValid() || !value.IsValid() {
+		return
 	}
+	field.Set(value)
+}
+
+func (m *queryManager) standardizeFieldValue(value reflect.Value) reflect.Value {
+	kind := value.Kind()
+	if slices.Contains(
+		[]string{
+			reflect.Int8.String(), reflect.Int16.String(), reflect.Int32.String(), reflect.Int64.String(),
+		}, kind.String(),
+	) {
+		return reflect.ValueOf(int(value.Int()))
+	}
+	return value
 }
 
 func (m *queryManager) isResultMap() bool {
