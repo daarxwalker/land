@@ -16,6 +16,7 @@ type Land interface {
 	Rollback() error
 	Query(query string, args ...any) ([]map[string]any, error)
 	FixSequence(table string) error
+	Reset(table string) error
 }
 
 type land struct {
@@ -88,6 +89,16 @@ func (l *land) Rollback() error {
 func (l *land) FixSequence(table string) error {
 	table = strcase.ToSnake(table)
 	_, err := l.db.connection.Exec(fmt.Sprintf("SELECT setval('%[1]s_id_seq', (SELECT MAX(id) FROM %[1]s));", table))
+	return err
+}
+
+func (l *land) Reset(table string) error {
+	_, err := l.db.connection.Exec(
+		fmt.Sprintf(
+			`TRUNCATE TABLE %[1]s RESTART IDENTITY CASCADE; ALTER SEQUENCE %[1]s_id_seq RESTART WITH 1
+;`, table,
+		),
+	)
 	return err
 }
 

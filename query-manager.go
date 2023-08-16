@@ -5,7 +5,6 @@ import (
 	"database/sql"
 	"fmt"
 	"reflect"
-	"slices"
 	"strings"
 	"time"
 	
@@ -69,97 +68,68 @@ func (m *queryManager) exec() {
 	m.log()
 }
 
-func (m *queryManager) scan() {
-	start := time.Now()
-	rows, err := m.connection().QueryContext(m.context, m.query)
-	m.duration = time.Now().Sub(start)
-	m.entity.errorManager.check(err, m.query)
-	defer func() {
-		m.entity.errorManager.check(rows.Close(), m.query)
-	}()
-	columnsTypes, err := rows.ColumnTypes()
-	for rows.Next() {
-		row := make([]any, len(columnsTypes))
-		for i, _ := range columnsTypes {
-			row[i] = new(any)
+func (m *queryManager) getRowData(row *sql.Rows, columnsTypes []*sql.ColumnType) (reflect.Value, error) {
+	result := m.createRowDataModel()
+	model := make([]any, len(columnsTypes))
+	columns := make([]string, len(columnsTypes))
+	for i, ct := range columnsTypes {
+		columns[i] = strcase.ToCamel(ct.Name())
+		switch strings.ToLower(ct.DatabaseTypeName()) {
+		case Varchar, Char, Text:
+			model[i] = &sql.NullString{}
+		case Int4, Int8:
+			model[i] = &sql.NullInt64{}
+		case Float4, Float8:
+			model[i] = &sql.NullFloat64{}
+		case Bool, Boolean:
+			model[i] = &sql.NullBool{}
+		case Byte, Bytea:
+			model[i] = &sql.NullByte{}
+		case Timestamp, TimestampWithZone:
+			model[i] = &sql.NullTime{}
 		}
-		err = rows.Scan(row...)
-		rowModel := m.createResultDataModel()
-		if !rowModel.IsValid() {
-			continue
-		}
-		for i, ct := range columnsTypes {
-			col := reflect.ValueOf(row[i])
-			if col.Kind() == reflect.Ptr {
-				col = col.Elem()
-			}
-			if col.Kind() == reflect.Interface {
-				col = col.Elem()
-			}
-			m.setResultFieldValue(rowModel, ct, m.standardizeFieldValue(col))
-		}
-		m.fillResultWithDataModel(rowModel)
 	}
+	if err := row.Scan(model...); err != nil {
+		return result, err
+	}
+	for i, c := range columns {
+		switch modelValue := model[i].(type) {
+		case *sql.NullFloat64:
+			m.setValue(result, c, modelValue.Float64)
+		case *sql.NullInt64:
+			m.setValue(result, c, int(modelValue.Int64))
+		case *sql.NullString:
+			m.setValue(result, c, modelValue.String)
+		case *sql.NullBool:
+			m.setValue(result, c, modelValue.Bool)
+		case *sql.NullByte:
+			m.setValue(result, c, modelValue.Byte)
+		case *sql.NullTime:
+			m.setValue(result, c, modelValue.Time)
+		}
+	}
+	return result, nil
 }
 
-func (m *queryManager) createResultDataModel() reflect.Value {
-	var model reflect.Value
-	if m.resultType == reflect.Slice.String() {
-		switch m.destRef.t.Elem().Kind() {
-		case reflect.Struct:
-			model = reflect.New(m.destRef.t.Elem()).Elem()
-		case reflect.Map:
-			model = reflect.MakeMapWithSize(m.destRef.t.Elem(), 0)
-		}
-		return model
-	}
-	model = m.destRef.v
-	return model
-}
-
-func (m *queryManager) fillResultWithDataModel(rowModel reflect.Value) {
-	if m.resultType == reflect.Slice.String() {
-		m.destRef.v.Set(reflect.Append(m.destRef.v, rowModel))
+func (m *queryManager) setValue(model reflect.Value, key string, value any) {
+	v := reflect.ValueOf(value)
+	if m.isDestMap() || m.isDestSliceOfMaps() {
+		model.SetMapIndex(reflect.ValueOf(key), v)
 		return
 	}
-	m.destRef.v.Set(rowModel)
-}
-
-func (m *queryManager) setResultFieldValue(rowModel reflect.Value, ct *sql.ColumnType, value reflect.Value) {
-	
-	if m.isResultMap() || m.isResultSliceOfMaps() {
-		rowModel.SetMapIndex(reflect.ValueOf(ct.Name()), value)
+	if model.Kind() != reflect.Struct {
+		model.Set(v)
 		return
 	}
-	if rowModel.Kind() != reflect.Struct {
-		rowModel.Set(value)
+	m.setValueToStruct(model, key, v)
+}
+
+func (m *queryManager) setValueToStruct(model reflect.Value, key string, value reflect.Value) {
+	f := model.FieldByName(key)
+	if !f.IsValid() || !value.IsValid() {
 		return
 	}
-	field := rowModel.FieldByName(strcase.ToCamel(ct.Name()))
-	if !field.IsValid() || !value.IsValid() {
-		return
-	}
-	field.Set(value)
-}
-
-func (m *queryManager) standardizeFieldValue(value reflect.Value) reflect.Value {
-	kind := value.Kind()
-	if slices.Contains(
-		[]string{
-			reflect.Int8.String(), reflect.Int16.String(), reflect.Int32.String(), reflect.Int64.String(),
-		}, kind.String(),
-	) {
-		return reflect.ValueOf(int(value.Int()))
-	}
-	return value
-}
-
-func (m *queryManager) isResultMap() bool {
-	return m.resultType == reflect.Map.String()
-}
-
-func (m *queryManager) isResultSliceOfMaps() bool {
-	return m.resultType == reflect.Slice.String() && m.destRef.t.Elem().Kind() == reflect.Map
+	f.Set(value)
 }
 
 func (m *queryManager) createScanRowColumn(columnType string) any {
@@ -174,6 +144,68 @@ func (m *queryManager) createScanRowColumn(columnType string) any {
 		return new(bool)
 	}
 	return new(any)
+}
+
+func (m *queryManager) scan() {
+	start := time.Now()
+	rows, err := m.connection().QueryContext(m.context, m.query)
+	m.duration = time.Now().Sub(start)
+	m.entity.errorManager.check(err, m.query)
+	defer func() {
+		m.entity.errorManager.check(rows.Close(), m.query)
+	}()
+	columnsTypes, err := rows.ColumnTypes()
+	for rows.Next() {
+		rowData, err := m.getRowData(rows, columnsTypes)
+		if err != nil {
+			panic(
+				Error{
+					Error: err,
+					Query: m.query,
+				},
+			)
+		}
+		m.setRowDataToResult(rowData)
+	}
+}
+
+func (m *queryManager) createRowDataModel() reflect.Value {
+	var result reflect.Value
+	if !m.isDestSlice() {
+		result = m.destRef.v
+		return result
+	}
+	switch m.destRef.t.Elem().Kind() {
+	case reflect.Map:
+		result = reflect.MakeMapWithSize(m.destRef.t.Elem(), 0)
+	default:
+		result = reflect.New(m.destRef.t.Elem()).Elem()
+	}
+	return result
+}
+
+func (m *queryManager) setRowDataToResult(rowData reflect.Value) {
+	if m.isDestSlice() {
+		m.destRef.v.Set(reflect.Append(m.destRef.v, rowData))
+		return
+	}
+	m.destRef.v.Set(rowData)
+}
+
+func (m *queryManager) isDestMap() bool {
+	return m.resultType == reflect.Map.String()
+}
+
+func (m *queryManager) isDestSlice() bool {
+	return m.resultType == reflect.Slice.String()
+}
+
+func (m *queryManager) isDestSliceOfMaps() bool {
+	return m.isDestSlice() && m.destRef.t.Elem().Kind() == reflect.Map
+}
+
+func (m *queryManager) isDestSliceOfStructs() bool {
+	return m.isDestSlice() && m.destRef.t.Elem().Kind() == reflect.Struct
 }
 
 func (m *queryManager) connection() *sql.DB {
