@@ -172,7 +172,7 @@ func (q *queryBuilder) createDefaultValue(column *column, value reflect.Value) r
 		return reflect.ValueOf(CurrentTimestamp)
 	}
 	if slices.Contains([]string{Bool, Boolean}, column.dataType) {
-		return reflect.ValueOf(0)
+		return reflect.ValueOf(false)
 	}
 	if slices.Contains([]string{Int, BigInt, Float}, column.dataType) {
 		return reflect.ValueOf(0)

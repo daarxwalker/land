@@ -3,9 +3,12 @@ package land
 import (
 	"fmt"
 	"strings"
+	
+	"github.com/iancoleman/strcase"
 )
 
 type ColumnQuery interface {
+	Coalesce() CoalesceQuery
 	Empty() ColumnQuery
 	Entity(entity Entity) ColumnQuery
 	Alias(alias string) ColumnQuery
@@ -45,12 +48,14 @@ type columnQueryBuilder struct {
 	compareExpression string
 	compareValue      any
 	separator         string
+	coalesce          []*coalesceQueryBuilder
 	columns           []*columnQueryBuilder
 }
 
 const (
 	aggregateAvg       = "avg"
 	aggregateArrayAgg  = "array-agg"
+	aggregateCoalesce  = "coalesce"
 	aggregateCount     = "count"
 	aggregateLength    = "length"
 	aggregateSum       = "sum"
@@ -77,7 +82,15 @@ func createColumnQuery(entity *entity, name string) *columnQueryBuilder {
 		entity:       entity,
 		use:          true,
 		name:         name,
+		coalesce:     make([]*coalesceQueryBuilder, 0),
 	}
+}
+
+func (q *columnQueryBuilder) Coalesce() CoalesceQuery {
+	c := createCoalesce()
+	q.coalesce = append(q.coalesce, c)
+	q.aggregate = aggregateCoalesce
+	return c
 }
 
 func (q *columnQueryBuilder) Empty() ColumnQuery {
@@ -255,6 +268,8 @@ func (q *columnQueryBuilder) createAggregateWrapper(col string) string {
 		col = fmt.Sprintf("ARRAY_AGG(%s)", col)
 	case aggregateStringAgg:
 		col = q.createStringAggWrapper(col)
+	case aggregateCoalesce:
+		col = q.createCoalesceAggWrapper(col)
 	}
 	return col
 }
@@ -284,6 +299,23 @@ func (q *columnQueryBuilder) createCompare(column string) string {
 	default:
 		return ""
 	}
+}
+
+func (q *columnQueryBuilder) createCoalesceAggWrapper(col string) string {
+	if len(q.coalesce) == 0 {
+		return col
+	}
+	result := make([]string, 0)
+	result = append(result, col)
+	for _, c := range q.coalesce {
+		for _, coalesceColumn := range c.columns {
+			result = append(result, fmt.Sprintf("%s.%s", strings.ToLower(c.entity.alias), strcase.ToSnake(coalesceColumn)))
+		}
+		for _, coalesceValue := range c.values {
+			result = append(result, fmt.Sprintf("%v", coalesceValue))
+		}
+	}
+	return fmt.Sprintf("COALESCE(%s)", strings.Join(result, q.getColumnsDivider()))
 }
 
 func (q *columnQueryBuilder) createStringAggWrapper(col string) string {
