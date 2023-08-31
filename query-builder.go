@@ -113,15 +113,16 @@ func (q *queryBuilder) validateValueKind(dataType string, value reflect.Value) b
 	case Boolean:
 		return kind == reflect.Bool
 	case Timestamp:
-		return kind == reflect.Struct
+		return kind == reflect.String || kind == reflect.Struct
 	case TimestampWithZone:
-		return kind == reflect.Struct
+		return kind == reflect.String || kind == reflect.Struct
 	default:
 		return false
 	}
 }
 
 func (q *queryBuilder) getValueByColumnDataType(dataType string, value reflect.Value) string {
+	kind := value.Kind()
 	switch dataType {
 	case TsVector:
 		if q.queryType == Where {
@@ -150,8 +151,14 @@ func (q *queryBuilder) getValueByColumnDataType(dataType string, value reflect.V
 	case Boolean:
 		return fmt.Sprintf(`%t`, value.Bool())
 	case Timestamp:
+		if kind == reflect.String {
+			return fmt.Sprintf("%s", value.String())
+		}
 		return fmt.Sprintf("'%s'", value.Interface().(time.Time).Format(time.DateTime))
 	case TimestampWithZone:
+		if kind == reflect.String {
+			return fmt.Sprintf("%s", value.String())
+		}
 		return fmt.Sprintf("'%s'", value.Interface().(time.Time).Format(time.DateTime))
 	default:
 		return ""
