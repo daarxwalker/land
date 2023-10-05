@@ -212,7 +212,7 @@ func (q *columnQueryBuilder) getQueryString() string {
 	}
 	result := make([]string, 0)
 	colSql := make([]string, 0)
-	if len(q.entity.alias) > 0 {
+	if !q.subqueryExist && len(q.entity.alias) > 0 {
 		colSql = append(colSql, q.escape(q.entity.alias)+q.getCoupler())
 	}
 	if q.subqueryExist {

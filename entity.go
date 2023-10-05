@@ -2,6 +2,9 @@ package land
 
 import (
 	"database/sql"
+	"fmt"
+	
+	"github.com/iancoleman/strcase"
 )
 
 type Entity interface {
@@ -18,7 +21,8 @@ type Entity interface {
 	CreateTable() CreateTableQuery
 	AlterTable() AlterTableQuery
 	DropTable() DropTableQuery
-
+	Column(name string) Safe
+	
 	getPtr() *entity
 }
 
@@ -93,18 +97,30 @@ func (e *entity) SetFulltext(entities ...Entity) Entity {
 	for _, ent := range entities {
 		e.fulltext = append(e.fulltext, ent.getPtr())
 	}
-	e.columns = append(e.columns, &column{name: Vectors, dataType: TsVector, options: ColOpts{NotNull: true, Default: "", Exclude: true}})
+	e.columns = append(
+		e.columns, &column{name: Vectors, dataType: TsVector, options: ColOpts{NotNull: true, Default: "", Exclude: true}},
+	)
 	return e
 }
 
 func (e *entity) SetCreatedAt() Entity {
-	e.columns = append(e.columns, &column{name: CreatedAt, dataType: e.getDateDataType(), options: ColOpts{NotNull: true, Default: CurrentTimestamp}})
+	e.columns = append(
+		e.columns,
+		&column{name: CreatedAt, dataType: e.getDateDataType(), options: ColOpts{NotNull: true, Default: CurrentTimestamp}},
+	)
 	return e
 }
 
 func (e *entity) SetUpdatedAt() Entity {
-	e.columns = append(e.columns, &column{name: UpdatedAt, dataType: e.getDateDataType(), options: ColOpts{NotNull: true, Default: CurrentTimestamp}})
+	e.columns = append(
+		e.columns,
+		&column{name: UpdatedAt, dataType: e.getDateDataType(), options: ColOpts{NotNull: true, Default: CurrentTimestamp}},
+	)
 	return e
+}
+
+func (e *entity) Column(name string) Safe {
+	return Safe{Value: fmt.Sprintf(`"%s"."%s"`, e.alias, strcase.ToSnake(name))}
 }
 
 func (e *entity) getDateDataType() string {
@@ -127,7 +143,9 @@ func (e *entity) getIdDataType() string {
 }
 
 func (e *entity) createIdColumn() Entity {
-	e.columns = append(e.columns, &column{name: Id, dataType: e.getIdDataType(), options: ColOpts{PK: true, NotNull: true, Unique: true}})
+	e.columns = append(
+		e.columns, &column{name: Id, dataType: e.getIdDataType(), options: ColOpts{PK: true, NotNull: true, Unique: true}},
+	)
 	return e
 }
 

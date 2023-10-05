@@ -1,6 +1,7 @@
 package land
 
 import (
+	"fmt"
 	"reflect"
 	"strings"
 )
@@ -13,9 +14,10 @@ type ConditionQuery interface {
 	Like(value any) ConditionQuery
 	Not() ConditionQuery
 	Null() ConditionQuery
-	Webalize() ConditionQuery
 	Or(queries ...ConditionQuery) ConditionQuery
+	Subquery(subquery SelectQuery) ConditionQuery
 	Use(use bool) ConditionQuery
+	Webalize() ConditionQuery
 	
 	fulltext(value string) *conditionQueryBuilder
 	getPtr() *conditionQueryBuilder
@@ -28,6 +30,7 @@ type conditionQueryBuilder struct {
 	andQueries           []*conditionQueryBuilder
 	whereType            string
 	column               string
+	subquery             string
 	valueRef             ref
 	excludeFromZeroLevel bool
 	use                  bool
@@ -106,6 +109,11 @@ func (q *conditionQueryBuilder) Or(queries ...ConditionQuery) ConditionQuery {
 	return q
 }
 
+func (q *conditionQueryBuilder) Subquery(query SelectQuery) ConditionQuery {
+	q.subquery = strings.TrimSuffix(query.GetSQL(), q.getQueryDivider())
+	return q
+}
+
 func (q *conditionQueryBuilder) Use(use bool) ConditionQuery {
 	q.use = use
 	return q
@@ -120,28 +128,46 @@ func (q *conditionQueryBuilder) createValueRef(value any) {
 	q.valueRef.t = reflect.TypeOf(value)
 	q.valueRef.v = reflect.ValueOf(value)
 	q.valueRef.kind = q.valueRef.v.Kind()
+	q.valueRef.safe = q.valueRef.t == reflect.TypeOf(Safe{})
 }
 
 func (q *conditionQueryBuilder) createQueryString() string {
 	shouldBeGrouped := len(q.orQueries) > 0 || len(q.andQueries) > 0
+	subqueryExist := len(q.subquery) > 0
 	result := make([]string, 0)
-	columnSql := make([]string, 0)
-	if len(q.entity.alias) > 0 {
-		columnSql = append(columnSql, q.escape(q.entity.alias)+q.getCoupler())
+	if subqueryExist {
+		result = append(result, fmt.Sprintf("(%s)", q.subquery))
 	}
-	columnSql = append(columnSql, q.escape(q.column))
-	col := strings.Join(columnSql, "")
-	if q.webalize {
-		col = webalize(col)
+	if !shouldBeGrouped {
+		if !subqueryExist {
+			columnSql := make([]string, 0)
+			if len(q.entity.alias) > 0 {
+				columnSql = append(columnSql, q.escape(q.entity.alias)+q.getCoupler())
+			}
+			columnSql = append(columnSql, q.escape(q.column))
+			col := strings.Join(columnSql, "")
+			if q.webalize {
+				col = webalize(col)
+			}
+			result = append(result, col)
+		}
+		result = append(result, q.getOperator())
+		value := q.getValue()
+		if len(value) > 0 {
+			result = append(result, value)
+		}
 	}
-	result = append(result, col)
-	result = append(result, q.getOperator())
-	result = append(result, q.getValue())
-	for _, item := range q.andQueries {
-		result = append(result, "AND", item.createQueryString())
+	for i, item := range q.andQueries {
+		if (i != 0 && shouldBeGrouped) || !shouldBeGrouped {
+			result = append(result, "AND")
+		}
+		result = append(result, item.createQueryString())
 	}
-	for _, item := range q.orQueries {
-		result = append(result, "OR", item.createQueryString())
+	for i, item := range q.orQueries {
+		if (i != 0 && shouldBeGrouped) || !shouldBeGrouped {
+			result = append(result, "OR")
+		}
+		result = append(result, item.createQueryString())
 	}
 	resultStr := strings.Join(result, " ")
 	if shouldBeGrouped {
@@ -181,8 +207,14 @@ func (q *conditionQueryBuilder) getOperator() string {
 
 func (q *conditionQueryBuilder) getValue() string {
 	column := q.getColumn()
-	if column == nil {
+	if column == nil && len(q.subquery) == 0 {
 		return ""
+	}
+	if column == nil && len(q.subquery) > 0 {
+		return q.createValueWithUnknownColumn(q.valueRef)
+	}
+	if q.valueRef.safe {
+		return fmt.Sprintf("%s", q.valueRef.v.Interface().(Safe).Value)
 	}
 	value := q.createValue(column, q.valueRef.v)
 	if q.webalize {

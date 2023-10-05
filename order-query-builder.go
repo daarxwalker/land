@@ -68,8 +68,11 @@ func (q *orderQueryBuilder) createQueryString() string {
 				result = append(result, q.createColumnSql(c.entity, order))
 			}
 			for _, c := range q.singleColumns {
-				if c.name != order.Key {
+				if c.name != order.Key && c.alias != order.Key {
 					continue
+				}
+				if c.alias == order.Key {
+					order.Key = c.name
 				}
 				result = append(result, q.createColumnSql(c.entity, order))
 			}
@@ -77,6 +80,9 @@ func (q *orderQueryBuilder) createQueryString() string {
 		if !order.Dynamic {
 			result = append(result, q.createColumnSql(q.entity, order))
 		}
+	}
+	if len(result) == 0 {
+		return ""
 	}
 	return strings.Join(result, q.getColumnsDivider())
 }

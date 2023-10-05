@@ -73,19 +73,18 @@ func createMigrator(land *land, migrationsManager *migrationsManager) Migrator {
 }
 
 func (m *migrator) Init() {
-	defer m.errorHandler.recover()
 	fmt.Println("### Initializing...")
 	m.createMigrationsEntity().CreateTable().IfNotExists().Exec()
 	fmt.Println("### INIT SUCCESS!")
 }
 
 func (m *migrator) New() {
-	defer m.errorHandler.recover()
+	// defer m.errorHandler.recover()
 	m.createMigration()
 }
 
 func (m *migrator) Up() {
-	defer m.errorHandler.recover()
+	// defer m.errorHandler.recover()
 	dbMigrations := make([]landMigration, 0)
 	lm := m.createMigrationsEntity()
 	{
@@ -115,7 +114,7 @@ func (m *migrator) Up() {
 }
 
 func (m *migrator) Down() {
-	defer m.errorHandler.recover()
+	// defer m.errorHandler.recover()
 	var lastMigration landMigration
 	{
 		lm := m.createMigrationsEntity()

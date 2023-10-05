@@ -122,7 +122,12 @@ func (q *insertQueryBuilder) createValuesPart() string {
 			continue
 		}
 		if c.name == Vectors {
-			result = append(result, q.vectors)
+			if len(q.vectors) == 0 {
+				result = append(result, createTSVectors(""))
+			}
+			if len(q.vectors) > 0 {
+				result = append(result, q.vectors)
+			}
 			continue
 		}
 		var field reflect.Value

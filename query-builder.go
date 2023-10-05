@@ -166,14 +166,14 @@ func (q *queryBuilder) getValueByColumnDataType(dataType string, value reflect.V
 }
 
 func (q *queryBuilder) createDefaultValue(column *column, value reflect.Value) reflect.Value {
-	if value.IsValid() {
-		return value
-	}
 	if column.dataType == TsVector {
 		if q.queryType == Where {
 			return reflect.ValueOf(createTSQuery(""))
 		}
 		return reflect.ValueOf(createTSVectors(""))
+	}
+	if value.IsValid() {
+		return value
 	}
 	if slices.Contains([]string{Timestamp, TimestampWithZone}, column.dataType) {
 		return reflect.ValueOf(CurrentTimestamp)
@@ -185,4 +185,19 @@ func (q *queryBuilder) createDefaultValue(column *column, value reflect.Value) r
 		return reflect.ValueOf(0)
 	}
 	return reflect.ValueOf("")
+}
+
+func (q *queryBuilder) createValueWithUnknownColumn(valueRef ref) string {
+	switch valueRef.kind {
+	case reflect.String:
+		return fmt.Sprintf(`'%s'`, valueRef.v.String())
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+		return fmt.Sprintf(`%d`, int(valueRef.v.Int()))
+	case reflect.Float32, reflect.Float64:
+		return fmt.Sprintf(`%f`, valueRef.v.Float())
+	case reflect.Bool:
+		return fmt.Sprintf(`%t`, valueRef.v.Bool())
+	default:
+		return fmt.Sprintf("%v", valueRef.v.Interface())
+	}
 }

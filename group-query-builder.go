@@ -5,7 +5,7 @@ import (
 )
 
 type GroupQuery interface {
-	Entity(entity *entity) GroupQuery
+	Entity(entity Entity) GroupQuery
 }
 
 type groupQueryBuilder struct {
@@ -22,8 +22,8 @@ func createGroupQuery(entity *entity, columns ...string) *groupQueryBuilder {
 	}
 }
 
-func (q *groupQueryBuilder) Entity(entity *entity) GroupQuery {
-	q.entity = entity
+func (q *groupQueryBuilder) Entity(entity Entity) GroupQuery {
+	q.entity = entity.getPtr()
 	return q
 }
 

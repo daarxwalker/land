@@ -9,6 +9,8 @@ import (
 	"time"
 	
 	"github.com/iancoleman/strcase"
+	
+	"util/numx"
 )
 
 type queryManager struct {
@@ -56,16 +58,16 @@ func (m *queryManager) setDest(dest any) *queryManager {
 }
 
 func (m *queryManager) getResult() {
-	defer m.entity.errorHandler.recover()
-	m.scan()
+	// defer m.entity.errorHandler.recover()
 	m.log()
+	m.scan()
 }
 
 func (m *queryManager) exec() {
-	defer m.entity.errorHandler.recover()
+	// defer m.entity.errorHandler.recover()
+	m.log()
 	_, err := m.connection().Exec(m.query)
 	m.entity.errorManager.check(err, m.query)
-	m.log()
 }
 
 func (m *queryManager) getRowData(row *sql.Rows, columnsTypes []*sql.ColumnType) (reflect.Value, error) {
@@ -74,7 +76,12 @@ func (m *queryManager) getRowData(row *sql.Rows, columnsTypes []*sql.ColumnType)
 	columns := make([]string, len(columnsTypes))
 	for i, ct := range columnsTypes {
 		columns[i] = strcase.ToCamel(ct.Name())
-		switch strings.ToLower(ct.DatabaseTypeName()) {
+		typeName := strings.ToLower(ct.DatabaseTypeName())
+		if strings.HasPrefix(typeName, "_") {
+			model[i] = &sql.NullString{}
+			continue
+		}
+		switch typeName {
 		case Varchar, Char, Text:
 			model[i] = &sql.NullString{}
 		case Int4, Int8:
@@ -99,7 +106,13 @@ func (m *queryManager) getRowData(row *sql.Rows, columnsTypes []*sql.ColumnType)
 		case *sql.NullInt64:
 			m.setValue(result, c, int(modelValue.Int64))
 		case *sql.NullString:
-			m.setValue(result, c, modelValue.String)
+			if result.Kind() == reflect.Slice && strings.HasPrefix(
+				modelValue.String, "{",
+			) && strings.HasSuffix(modelValue.String, "}") {
+				m.setValue(result, c, m.createSliceFromArrayAgg(modelValue.String))
+			} else {
+				m.setValue(result, c, modelValue.String)
+			}
 		case *sql.NullBool:
 			m.setValue(result, c, modelValue.Bool)
 		case *sql.NullByte:
@@ -111,8 +124,36 @@ func (m *queryManager) getRowData(row *sql.Rows, columnsTypes []*sql.ColumnType)
 	return result, nil
 }
 
+func (m *queryManager) createSliceFromArrayAgg(value string) any {
+	items := strings.Split(strings.TrimSuffix(strings.TrimPrefix(value, "{"), "}"), ",")
+	result := reflect.New(m.destRef.t).Elem()
+	if len(items) == 0 {
+		return result.Interface()
+	}
+	sliceElemKind := m.destRef.t.Elem().Kind()
+	for _, item := range items {
+		switch sliceElemKind {
+		case reflect.Float32:
+			result = reflect.Append(result, reflect.ValueOf(numx.Float32(item)))
+		case reflect.Float64:
+			result = reflect.Append(result, reflect.ValueOf(numx.Float64(item)))
+		case reflect.Int:
+			result = reflect.Append(result, reflect.ValueOf(numx.Int(item)))
+		case reflect.Bool:
+			result = reflect.Append(result, reflect.ValueOf(item == "true"))
+		default:
+			result = reflect.Append(result, reflect.ValueOf(item))
+		}
+	}
+	return result.Interface()
+}
+
 func (m *queryManager) setValue(model reflect.Value, key string, value any) {
 	v := reflect.ValueOf(value)
+	if v.Kind() == reflect.Slice {
+		model.Set(v)
+		return
+	}
 	if m.isDestMap() || m.isDestSliceOfMaps() {
 		model.SetMapIndex(reflect.ValueOf(key), v)
 		return
@@ -127,6 +168,10 @@ func (m *queryManager) setValue(model reflect.Value, key string, value any) {
 func (m *queryManager) setValueToStruct(model reflect.Value, key string, value reflect.Value) {
 	f := model.FieldByName(key)
 	if !f.IsValid() || !value.IsValid() {
+		return
+	}
+	if f.Kind() != value.Kind() {
+		fmt.Printf("%s: mismatch data types\n", key)
 		return
 	}
 	f.Set(value)
@@ -149,8 +194,8 @@ func (m *queryManager) createScanRowColumn(columnType string) any {
 func (m *queryManager) scan() {
 	start := time.Now()
 	rows, err := m.connection().QueryContext(m.context, m.query)
-	m.duration = time.Now().Sub(start)
 	m.entity.errorManager.check(err, m.query)
+	m.duration = time.Now().Sub(start)
 	defer func() {
 		m.entity.errorManager.check(rows.Close(), m.query)
 	}()
@@ -178,15 +223,22 @@ func (m *queryManager) createRowDataModel() reflect.Value {
 	switch m.destRef.t.Elem().Kind() {
 	case reflect.Map:
 		result = reflect.MakeMapWithSize(m.destRef.t.Elem(), 0)
-	default:
+	case reflect.Struct:
 		result = reflect.New(m.destRef.t.Elem()).Elem()
+	default:
+		result = reflect.New(m.destRef.t).Elem()
 	}
 	return result
 }
 
 func (m *queryManager) setRowDataToResult(rowData reflect.Value) {
 	if m.isDestSlice() {
-		m.destRef.v.Set(reflect.Append(m.destRef.v, rowData))
+		if rowData.Kind() == reflect.Slice {
+			m.destRef.v.Set(rowData)
+		}
+		if rowData.Kind() == reflect.Struct || rowData.Kind() == reflect.Map {
+			m.destRef.v.Set(reflect.Append(m.destRef.v, rowData))
+		}
 		return
 	}
 	m.destRef.v.Set(rowData)

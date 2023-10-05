@@ -191,6 +191,10 @@ func (q *selectQueryBuilder) Param(param Param) SelectQuery {
 		param.Order[i].Dynamic = true
 	}
 	q.param = param
+	if len(param.Order) > 0 {
+		order := createOrderQuery(q.entity, q.columns, q.singleColumns, param.Order...)
+		q.orders = append(q.orders, order)
+	}
 	return q
 }
 
@@ -276,16 +280,14 @@ func (q *selectQueryBuilder) createFulltextConditions() {
 		return
 	}
 	q.wheres = append(q.wheres, createConditionQuery(q.entity).Column(Vectors).fulltext(q.param.Fulltext))
-	for _, join := range q.joins {
-		q.wheres = append(q.wheres, createConditionQuery(join.joinEntity).Column(Vectors).fulltext(q.param.Fulltext))
-	}
 }
 
 func (q *selectQueryBuilder) createWheresPart() []string {
 	result := make([]string, 0)
+	i := 0
 	q.createFulltextConditions()
-	for i, where := range q.wheres {
-		if where.excludeFromZeroLevel {
+	for _, where := range q.wheres {
+		if where.excludeFromZeroLevel || !where.use {
 			continue
 		}
 		condition := make([]string, 0)
@@ -297,6 +299,7 @@ func (q *selectQueryBuilder) createWheresPart() []string {
 		}
 		condition = append(condition, where.createQueryString())
 		result = append(result, strings.Join(condition, " "))
+		i++
 	}
 	return result
 }
@@ -340,11 +343,13 @@ func (q *selectQueryBuilder) createOrdersPart() []string {
 	if len(q.orders) == 0 {
 		return result
 	}
-	result = append(result, "ORDER BY")
 	for _, order := range q.orders {
 		orders = append(orders, order.createQueryString())
 	}
-	result = append(result, strings.Join(orders, q.getColumnsDivider()))
+	if len(orders) > 0 {
+		result = append(result, "ORDER BY")
+		result = append(result, strings.Join(orders, q.getColumnsDivider()))
+	}
 	return result
 }
 
