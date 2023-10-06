@@ -3,7 +3,7 @@ package land
 import (
 	"database/sql"
 	"fmt"
-	
+
 	"github.com/iancoleman/strcase"
 )
 
@@ -21,8 +21,9 @@ type Entity interface {
 	CreateTable() CreateTableQuery
 	AlterTable() AlterTableQuery
 	DropTable() DropTableQuery
+	Truncate() TruncateQuery
 	Column(name string) Safe
-	
+
 	getPtr() *entity
 }
 
@@ -75,6 +76,10 @@ func (e *entity) AlterTable() AlterTableQuery {
 
 func (e *entity) DropTable() DropTableQuery {
 	return createDropTableQuery(e)
+}
+
+func (e *entity) Truncate() TruncateQuery {
+	return createTruncateQuery(e)
 }
 
 func (e *entity) SetAlias(alias string) Entity {

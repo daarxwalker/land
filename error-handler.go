@@ -16,6 +16,10 @@ func createErrorHandler(land *land) *errorHandler {
 	}
 }
 
+func Recover(land Land) {
+	createErrorHandler(land.getPtr()).recover()
+}
+
 func (e *errorHandler) createErrorMessage(err error, msg string, query string) {
 	formatSlice := make([]string, 0)
 	if err != nil {

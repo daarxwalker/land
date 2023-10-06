@@ -3,7 +3,7 @@ package land
 import (
 	"errors"
 	"fmt"
-	
+
 	"github.com/iancoleman/strcase"
 )
 
@@ -17,6 +17,8 @@ type Land interface {
 	Query(query string, args ...any) ([]map[string]any, error)
 	FixSequence(table string) error
 	Reset(table string) error
+
+	getPtr() *land
 }
 
 type land struct {
@@ -116,4 +118,8 @@ func (l *land) Ping() error {
 
 func (l *land) Transaction() Transaction {
 	return createTransactionManager(l)
+}
+
+func (l *land) getPtr() *land {
+	return l
 }

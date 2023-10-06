@@ -1,6 +1,10 @@
 package land
 
-import "errors"
+import (
+	"errors"
+
+	"util/dd"
+)
 
 type ErrorManager interface {
 	IsError() bool
@@ -38,6 +42,7 @@ func (m *errorManager) check(err error, query string) {
 		return
 	}
 	e := Error{Error: err, Query: query}
+	dd.Print(e)
 	m.errors = append(m.errors, e)
 	panic(e)
 }

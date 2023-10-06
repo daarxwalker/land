@@ -9,6 +9,7 @@ const (
 	CreateTable = "CREATE TABLE"
 	AlterTable  = "ALTER TABLE"
 	DropTable   = "DROP TABLE"
+	Truncate    = "TRUNCATE"
 	Where       = "WHERE"
 	Join        = "JOIN"
 	Order       = "ORDER"
